@@ -1,0 +1,11 @@
+[project]
+name = "cdt-blender-provider"
+version = "0.0.0"
+description = "Blender MCP provider for CDT_Engineer contracts"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Build backend/runtime dependencies are intentionally deferred until B0 proves
+# the supported Blender/Python/addon matrix.

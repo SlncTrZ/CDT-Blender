@@ -1,0 +1,32 @@
+# Secrets / environment
+.env
+.env.*
+*.secret
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# Blender artifacts
+*.blend
+*.blend1
+*.blend2
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs/temp
+*.log
+tmp/
