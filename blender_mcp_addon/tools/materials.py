@@ -1,0 +1,359 @@
+# blender_mcp_addon/tools/materials.py
+
+import fnmatch
+
+import bpy  # type: ignore
+
+from ..utils import get_object, hex_to_rgb
+
+
+class MaterialTools:
+    def create_material(
+        self,
+        name,
+        preset=None,
+        base_color=None,
+        metallic=None,
+        roughness=None,
+        emission_color=None,
+        emission_strength=None,
+        alpha=None,
+        transmission=None,
+        ior=None,
+        object_names=None,
+        pattern=None,
+        collection=None,
+        slot_index=0,
+        **kwargs,
+    ):
+        """Create material with Principled BSDF"""
+        count = 0  # Initialize count
+        PRESETS = {
+            "glass": {
+                "base_color": "#FFFFFF",
+                "roughness": 0.1,
+                "transmission": 1.0,
+                "ior": 1.45,
+            },
+            "glass_tinted": {
+                "base_color": "#88CCFF",
+                "roughness": 0.1,
+                "transmission": 0.9,
+            },
+            "glass_frosted": {
+                "base_color": "#FFFFFF",
+                "roughness": 0.3,
+                "transmission": 0.8,
+            },
+            "metal_brushed": {
+                "base_color": "#C0C0C0",
+                "metallic": 1.0,
+                "roughness": 0.3,
+            },
+            "metal_polished": {
+                "base_color": "#E0E0E0",
+                "metallic": 1.0,
+                "roughness": 0.05,
+            },
+            "metal_gold": {"base_color": "#FFD700", "metallic": 1.0, "roughness": 0.2},
+            "metal_copper": {
+                "base_color": "#B87333",
+                "metallic": 1.0,
+                "roughness": 0.3,
+            },
+            "plastic_glossy": {
+                "base_color": "#FFFFFF",
+                "metallic": 0.0,
+                "roughness": 0.2,
+            },
+            "plastic_matte": {
+                "base_color": "#FFFFFF",
+                "metallic": 0.0,
+                "roughness": 0.7,
+            },
+            "concrete": {"base_color": "#808080", "metallic": 0.0, "roughness": 0.9},
+            "wood": {"base_color": "#8B4513", "metallic": 0.0, "roughness": 0.6},
+            "rubber": {"base_color": "#2C2C2C", "metallic": 0.0, "roughness": 0.8},
+            "emission": {
+                "base_color": "#FFFFFF",
+                "emission_color": "#FFFFFF",
+                "emission_strength": 5.0,
+            },
+        }
+
+        if preset and preset in PRESETS:
+            p = PRESETS[preset]
+            if base_color is None:
+                base_color = p.get("base_color")
+            if metallic is None:
+                metallic = p.get("metallic")
+            if roughness is None:
+                roughness = p.get("roughness")
+            if transmission is None:
+                transmission = p.get("transmission")
+            if ior is None:
+                ior = p.get("ior")
+            if emission_color is None:
+                emission_color = p.get("emission_color")
+            if emission_strength is None:
+                emission_strength = p.get("emission_strength")
+
+        # Apply final fallbacks for any values still None
+        metallic = metallic if metallic is not None else 0.0
+        roughness = roughness if roughness is not None else 0.5
+        emission_strength = emission_strength if emission_strength is not None else 0.0
+        alpha = alpha if alpha is not None else 1.0
+        transmission = transmission if transmission is not None else 0.0
+        ior = ior if ior is not None else 1.45
+
+        mat = bpy.data.materials.get(name)
+        status = "existing" if mat else "created"
+        if not mat:
+            mat = bpy.data.materials.new(name=name)
+            mat.use_nodes = True
+
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        if base_color:
+            rgb = hex_to_rgb(base_color)
+            if "Base Color" in bsdf.inputs:
+                bsdf.inputs["Base Color"].default_value = (*rgb, 1.0)
+
+        if "Metallic" in bsdf.inputs:
+            bsdf.inputs["Metallic"].default_value = metallic
+        if "Roughness" in bsdf.inputs:
+            bsdf.inputs["Roughness"].default_value = roughness
+        if "Alpha" in bsdf.inputs:
+            bsdf.inputs["Alpha"].default_value = alpha
+
+        # Cycles vs EEVEE check
+        # In Blender 4.0+, the property is 'Transmission Weight' instead of 'Transmission'
+        if "Transmission Weight" in bsdf.inputs:
+            bsdf.inputs["Transmission Weight"].default_value = transmission
+        elif "Transmission" in bsdf.inputs:
+            bsdf.inputs["Transmission"].default_value = transmission
+
+        if emission_color:
+            e_rgb = hex_to_rgb(emission_color)
+            if "Emission Color" in bsdf.inputs:  # Blender 4.0+
+                bsdf.inputs["Emission Color"].default_value = (*e_rgb, 1.0)
+            elif "Emission" in bsdf.inputs:  # Pre-4.0
+                bsdf.inputs["Emission"].default_value = (*e_rgb, 1.0)
+            if "Emission Strength" in bsdf.inputs:
+                bsdf.inputs["Emission Strength"].default_value = emission_strength
+
+        # Blender 4.0+ uses IOR under the base layer
+        if "IOR" in bsdf.inputs:
+            bsdf.inputs["IOR"].default_value = ior
+
+        if object_names or pattern or collection:
+            assign_res = self.assign_material(
+                name,
+                object_names=object_names,
+                pattern=pattern,
+                collection=collection,
+                slot_index=slot_index,
+            )
+            count = assign_res.get("count", 0)
+            msg = f"Material '{name}' {status} and assigned to {count} objects. ASSIGNMENT COMPLETE. No further calls needed."
+        else:
+            msg = f"Material '{name}' {status}."
+
+        return {
+            "success": True,
+            "name": name,
+            "count": count if (object_names or pattern or collection) else 0,
+            "message": msg,
+        }
+
+    def set_material_properties(self, material_name, **kwargs):
+        """Modify existing material properties"""
+        mat = bpy.data.materials.get(material_name)
+        if not mat:
+            raise ValueError(f"Material '{material_name}' not found")
+        if not mat.use_nodes:
+            mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+
+        inputs = {
+            "base_color": (["Base Color"], True),
+            "metallic": (["Metallic"], False),
+            "roughness": (["Roughness"], False),
+            "alpha": (["Alpha"], False),
+            "transmission": (["Transmission Weight", "Transmission"], False),
+            "emission_color": (["Emission Color", "Emission"], True),
+            "emission_strength": (["Emission Strength"], False),
+            "ior": (["IOR"], False),
+        }
+
+        for key, (input_names, is_color) in inputs.items():
+            if key in kwargs and kwargs[key] is not None:
+                val = kwargs[key]
+                # Find the first valid input name in the BSDF node
+                valid_input = next((n for n in input_names if n in bsdf.inputs), None)
+                if valid_input:
+                    if is_color:
+                        rgb = hex_to_rgb(val)
+                        bsdf.inputs[valid_input].default_value = (*rgb, 1.0)
+                    else:
+                        bsdf.inputs[valid_input].default_value = val
+
+        return {
+            "success": True,
+            "material": material_name,
+            "message": f"Properties updated for '{material_name}'",
+        }
+
+    def assign_material(
+        self,
+        material_name,
+        object_names=None,
+        pattern=None,
+        collection=None,
+        slot_index=0,
+        **kwargs,
+    ):
+        """Assign material to objects. Supports both names and patterns."""
+        mat = bpy.data.materials.get(material_name) or self.create_material(material_name)["name"]
+        if isinstance(mat, str):
+            mat = bpy.data.materials.get(mat)
+
+        target_names = set()
+
+        # Process patterns
+        if pattern:
+            patterns = [pattern] if isinstance(pattern, str) else pattern
+            for p in patterns:
+                matches = fnmatch.filter(bpy.data.objects.keys(), p)
+                target_names.update(matches)
+
+        # Process collection
+        if collection:
+            collections = [collection] if isinstance(collection, str) else collection
+            for c_name in collections:
+                coll = bpy.data.collections.get(c_name)
+                if coll:
+                    for obj in coll.all_objects:
+                        target_names.add(obj.name)
+
+        # Process specific names
+        if object_names:
+            if isinstance(object_names, str):
+                object_names = [object_names]
+            for name in object_names:
+                if "*" in name or "?" in name:
+                    matches = fnmatch.filter(bpy.data.objects.keys(), name)
+                    target_names.update(matches)
+                else:
+                    target_names.add(name)
+
+        # Fallback to selection if nothing provided
+        if not target_names:
+            target_names = {o.name for o in bpy.context.selected_objects}
+            if not target_names:
+                raise ValueError(
+                    "No objects provided via 'object_names', 'pattern', or current selection."
+                )
+
+        for obj_name in target_names:
+            obj = get_object(obj_name)
+            if len(obj.data.materials) == 0:
+                obj.data.materials.append(mat)
+            else:
+                obj.data.materials[slot_index] = mat
+
+        count = len(target_names)
+        return {
+            "success": True,
+            "count": count,
+            "message": f"Material '{material_name}' assigned to {count} objects. TASK COMPLETE. Do not perform redundant steps.",
+        }
+
+    def add_shader_node(self, material_name, node_type, location, params=None):
+        mat = bpy.data.materials.get(material_name)
+        if not mat:
+            raise ValueError(f"Material '{material_name}' not found")
+        if not mat.use_nodes:
+            mat.use_nodes = True
+        node = mat.node_tree.nodes.new(type=node_type)
+        node.location = location
+        if params:
+            for k, v in params.items():
+                if hasattr(node, k):
+                    setattr(node, k, v)
+        return {
+            "success": True,
+            "node_name": node.name,
+            "message": f"Added node '{node.name}' to '{material_name}'",
+        }
+
+    def connect_shader_nodes(self, material_name, from_node, from_socket, to_node, to_socket):
+        mat = bpy.data.materials.get(material_name)
+        nodes = mat.node_tree.nodes
+        from_n, to_n = nodes.get(from_node), nodes.get(to_node)
+        mat.node_tree.links.new(from_n.outputs[from_socket], to_n.inputs[to_socket])
+        return {"success": True, "message": f"Connected nodes in '{material_name}'"}
+
+    def assign_builtin_texture(self, material_name, texture_type):
+        mat = bpy.data.materials.get(material_name)
+        if not mat.use_nodes:
+            mat.use_nodes = True
+        nodes = mat.node_tree.nodes
+        tex_node = nodes.new(type=f"ShaderNodeTex{texture_type.capitalize()}")
+        tex_node.location = (-400, 0)
+        bsdf = nodes.get("Principled BSDF")
+        mat.node_tree.links.new(tex_node.outputs[0], bsdf.inputs["Base Color"])
+        return {
+            "success": True,
+            "message": f"Assigned {texture_type} texture to '{material_name}'",
+        }
+
+    def assign_texture_map(self, material_name, image_path, map_type="Base Color"):
+        """
+        Load an image and assign it to a material slot.
+        map_type options: 'Base Color', 'Roughness', 'Metallic', 'Normal', 'Emission', 'Alpha'
+        """
+        mat = bpy.data.materials.get(material_name)
+        if not mat:
+            raise ValueError(f"Material '{material_name}' not found")
+
+        if not mat.use_nodes:
+            mat.use_nodes = True
+
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+        bsdf = nodes.get("Principled BSDF")
+
+        try:
+            img = bpy.data.images.load(image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to load image: {str(e)}"}
+
+        # Create Image Texture Node
+        tex_image = nodes.new(type="ShaderNodeTexImage")
+        tex_image.image = img
+        tex_image.location = (-600, 300)
+
+        # Set Color Space based on map type
+        if map_type in ["Base Color", "Emission"]:
+            tex_image.image.colorspace_settings.name = "sRGB"
+        else:
+            tex_image.image.colorspace_settings.name = "Non-Color"
+
+        # Special casing for Normal Map
+        if map_type == "Normal":
+            normal_map = nodes.new(type="ShaderNodeNormalMap")
+            normal_map.location = (-300, -200)
+            links.new(tex_image.outputs["Color"], normal_map.inputs["Color"])
+            links.new(normal_map.outputs["Normal"], bsdf.inputs["Normal"])
+        elif map_type in bsdf.inputs:
+            links.new(tex_image.outputs["Color"], bsdf.inputs[map_type])
+        else:
+            return {
+                "success": False,
+                "error": f"Map type '{map_type}' not found in Principled BSDF",
+            }
+
+        return {
+            "success": True,
+            "message": f"Assigned {map_type} map to '{material_name}' using {image_path}",
+        }

@@ -1,8 +1,25 @@
 # CDT-Blender
 
-Independent Blender MCP provider for the CDT engineering program.
+Independent Blender MCP provider for the CDT engineering program (SlncTrZ provider: `blender`).
 
-> Status: **B0 skeleton ready** · Runtime implementation not started · Spec pin: `CDT_Engineer@643019c`
+> **Fork.** CDT-Blender adapts upstream
+> [seehiong/blender-mcp-bridge](https://github.com/seehiong/blender-mcp-bridge)
+> (MIT, © 2026 seehiong — `LICENSE` preserved verbatim) to the SlncTrZ
+> ecosystem. Upstream pin: `b8113ae` (v0.1.3). This fork: `0.1.3+cdt.1`.
+> Full provenance in [`ATTRIBUTION.md`](ATTRIBUTION.md).
+>
+> **SlncTrZ compliance:** stable provider ID `blender`
+> (`blender.<tool>` gateway namespace) · Streamable HTTP `POST /mcp` ·
+> fail-closed Bearer auth · read-only `help` / `system_status` /
+> `system_capabilities` from runtime [`docs/TOOL_GUIDE.md`](docs/TOOL_GUIDE.md)
+> with SHA-256 `contract_hash` · unauthenticated `GET /healthz`.
+> Call `help` first — it is the running contract.
+>
+> **Boundary (CDT_Engineer):** generic native 3D execution only. Discipline
+> builders (architectural/MEP) are quarantined from the contract; standards
+> interpretation and Audit Reports belong to CDT_Engineer Production Domains.
+>
+> Status: **B0 provider shell forked** · Blender 4.x addon + bridge · Spec pin: `CDT_Engineer@643019c`
 
 ## Repository role
 

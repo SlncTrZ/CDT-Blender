@@ -1,11 +1,120 @@
+# CDT-Blender provider (fork of seehiong/blender-mcp-bridge v0.1.3, MIT).
+# See ATTRIBUTION.md. Upstream pin: b8113aea74aeb08b8b83ea08989ae53d729ed82b.
+#
+# Dropped vs upstream: `anthropic` (assistant.py removed — providers own
+# deterministic mechanics, never LLM judgment or model credentials).
+
 [project]
-name = "cdt-blender-provider"
-version = "0.0.0"
-description = "Blender MCP provider for CDT_Engineer contracts"
+name = "cdt-blender"
+version = "0.1.3+cdt.1"
+description = "CDT-Blender generic 3D execution engine for SlncTrZ (provider: blender)"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "SlncTrZ / Truong Cong Dinh" }]
+keywords = ["mcp", "blender", "3d", "cdt", "slnctrz-mcp", "model-context-protocol"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "mcp>=1.0.0,<2.0.0",  # 2.0 removed the @server.list_tools/@call_tool decorators
+    "starlette>=0.27.0",
+    "uvicorn>=0.23.0",
+    "sse-starlette>=1.6.0",
+    "python-dotenv>=1.0.0",
+    "click>=8.1.7",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/SlncTrZ/CDT-Blender"
+Repository = "https://github.com/SlncTrZ/CDT-Blender"
+Issues = "https://github.com/SlncTrZ/CDT-Blender/issues"
+
+[project.scripts]
+cdt-blender = "blender_mcp_bridge.main:cli"
+blender-mcp-bridge = "blender_mcp_bridge.main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Ship the server package and the design-rule data it serves.
+packages = ["blender_mcp_bridge"]
+# Bundle the runtime help source into the wheel so `help` keeps serving the
+# full guide for pip-installed deployments (snapshot taken at build time).
+[tool.hatch.build.targets.wheel.force-include]
+"docs/TOOL_GUIDE.md" = "blender_mcp_bridge/data/TOOL_GUIDE.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "blender_mcp_bridge",
+    "data/design-rules.json",
+    "docs/TOOL_GUIDE.md",
+    "README.md",
+    "LICENSE",
+    "ATTRIBUTION.md",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-# Build backend/runtime dependencies are intentionally deferred until B0 proves
-# the supported Blender/Python/addon matrix.
+# ── Dev dependencies ─────────────────────────────────────────────────────────
+[dependency-groups]
+dev = [
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0",
+    "httpx>=0.27.0",
+]
+
+# ── Ruff ─────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "C90",
+    "I",
+    "N",
+    "UP",
+    "B",
+]
+ignore = [
+    "E501",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.per-file-ignores]
+# blender_mcp_addon uses Blender's mandatory naming conventions (bl_info,
+# register/unregister, UPPER_CASE class names for operators, etc.)
+"blender_mcp_addon/**" = ["N", "C901"]
+"tests/**" = ["N", "C901"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── Mypy (bridge only — bpy has no public stubs) ─────────────────────────────
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = false

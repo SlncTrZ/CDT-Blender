@@ -1,3 +1,8 @@
+# CDT-Blender .gitignore (fork of seehiong/blender-mcp-bridge, MIT — see ATTRIBUTION.md)
+#
+# Upstream ignores for studio/community/claude web assets were dropped with
+# those directories. *.blend stays ignored: working files, not source.
+
 # Secrets / environment
 .env
 .env.*
@@ -11,22 +16,29 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .coverage
 dist/
 build/
 *.egg-info/
 
-# Blender artifacts
+# Blender artifacts (working files, never source)
 *.blend
 *.blend1
 *.blend2
+
+# Large regenerable slicer blobs
+*.3mf
+
+# Session recordings / generated benchmark output (tracked fixtures excepted)
+*.log
+tmp/
+scratch/
+/temp_*.py
+/tmp_*.py
 
 # IDE / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# Logs/temp
-*.log
-tmp/
