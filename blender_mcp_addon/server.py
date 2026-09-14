@@ -283,6 +283,10 @@ class BlenderMCPServer(
             "object_count": self.object_count,
             # Common organization query
             "organization_list": self.organization_list,
+            # Common object transforms
+            "object_move": self.object_move,
+            "object_rotate": self.object_rotate,
+            "object_scale": self.object_scale,
             # Scene
             "get_scene_info": self.get_scene_info,
             "get_object_info": self.get_object_info,

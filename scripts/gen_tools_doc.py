@@ -12,6 +12,7 @@ CATS = [
     ("Document", "blender_mcp_bridge.tools.document", "get_document_tools"),
     ("Object Query", "blender_mcp_bridge.tools.object_query", "get_object_query_tools"),
     ("Organization", "blender_mcp_bridge.tools.organization", "get_organization_tools"),
+    ("Common Transform", "blender_mcp_bridge.tools.transform", "get_common_transform_tools"),
     ("Scene & Diagnostics", "blender_mcp_bridge.tools.scene", "get_scene_tools"),
     ("Collections", "blender_mcp_bridge.tools.collections", "get_collection_tools"),
     ("Modeling", "blender_mcp_bridge.tools.modeling", "get_modeling_tools"),

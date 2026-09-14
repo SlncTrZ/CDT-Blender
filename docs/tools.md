@@ -1,4 +1,4 @@
-# Bridge Tool Reference — 105 tools
+# Bridge Tool Reference — 108 tools
 
 Auto-generated from the bridge tool schemas in `blender_mcp_bridge/tools/` (the single source of truth
 the MCP client sees). Regenerate after adding or changing a tool:
@@ -15,6 +15,7 @@ generator and fails loudly on drift.
 - [Document](#document) (6)
 - [Object Query](#object-query) (3)
 - [Organization](#organization) (1)
+- [Common Transform](#common-transform) (3)
 - [Scene & Diagnostics](#scene--diagnostics) (4)
 - [Collections](#collections) (7)
 - [Modeling](#modeling) (40)
@@ -61,6 +62,14 @@ generator and fails loudly on drift.
 | Tool | Description | Parameters (**bold** = required) |
 |---|---|---|
 | `organization_list` | List Blender collections reachable from the active scene as common organizations. Results are deterministic, bounded, and include hierarchy and Blender visibility metadata. | offset, limit |
+
+## Common Transform
+
+| Tool | Description | Parameters (**bold** = required) |
+|---|---|---|
+| `object_move` | Move one active-scene object by a WORLD-space XYZ delta. The object's world orientation and scale are preserved. | **name**, **delta** |
+| `object_rotate` | Rotate one active-scene object around its own origin by a WORLD-space Euler XYZ delta in degrees. Translation and scale are preserved. World matrices with shear are refused because decomposition would be lossy. | **name**, **delta_degrees** |
+| `object_scale` | Multiply one active-scene object's LOCAL-axis scale channels by XYZ factors. The object's location and rotation channels are preserved. | **name**, **factors** |
 
 ## Scene & Diagnostics
 

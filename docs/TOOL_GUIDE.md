@@ -53,7 +53,7 @@ Every tool is callable by name. Do not invent tool names.
 - `common.document.{new,open,info,save,save_as,close}` — supported by public `document_*` tools. Open/save paths are restricted to configured allow-roots; `document_close` preserves the Blender process/addon by resetting to an empty unsaved file instead of quitting Blender. In background mode Blender 4.5 does not provide a reliable clean/dirty signal, so destructive replace/open/close requires explicit `discard_unsaved=true`.
 - `common.object.{list,get,count}` — supported by public `object_*` tools scoped to the active scene. Lists are deterministic and bounded. Blender `session_uid` is exposed only as a non-persistent process-scoped native handle; object names remain the current lookup key.
 - `common.organization.list` — supported by public `organization_list`, mapping only collections reachable from the active scene. Results are deterministic and bounded; hierarchy, direct object counts and Blender visibility state are reported without treating orphan data-blocks as active-scene organizations.
-- `common.transform.{move,rotate,scale}` — supported (object/edit transforms).
+- `common.transform.{move,rotate,scale}` — supported by public `object_move/object_rotate/object_scale`. Move is a relative WORLD-space XYZ delta; rotate is a WORLD-space Euler XYZ delta in degrees about the object origin and fails closed on sheared world matrices; scale multiplies LOCAL-axis object scale channels. The legacy `transform_object` remains a Blender extension for absolute/channel-oriented edits.
 - `common.transaction.*` — UNSUPPORTED (`reason: no_atomic_transaction_use_undo_history`).
   Native `undo`/`redo` ARE supported; mutating addon commands push undo steps.
 - `common.import_asset` / `common.export_asset` — supported (STL/3MF/OBJ +
@@ -97,7 +97,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v5`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v6`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

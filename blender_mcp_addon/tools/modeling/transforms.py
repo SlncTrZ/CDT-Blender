@@ -7,8 +7,150 @@ import mathutils  # type: ignore
 
 from ...utils import get_collection, get_object
 
+COMMON_TRANSFORM_EPSILON = 1e-6
+
+
+def _common_transform_error(kind, message):
+    return {"status": "error", "kind": kind, "retryable": False, "message": message}
+
+
+def _finite_xyz(value, field_name):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None, _common_transform_error(
+            "validation_error", f"{field_name} must contain exactly three numeric values."
+        )
+    result = []
+    for component in value:
+        if isinstance(component, bool) or not isinstance(component, (int, float)):
+            return None, _common_transform_error(
+                "validation_error", f"{field_name} must contain exactly three numeric values."
+            )
+        component = float(component)
+        if not math.isfinite(component):
+            return None, _common_transform_error(
+                "validation_error", f"{field_name} values must be finite."
+            )
+        result.append(component)
+    return tuple(result), None
+
+
+def _active_scene_object(name):
+    if not isinstance(name, str) or not name.strip():
+        return None, _common_transform_error("validation_error", "name must be a non-empty string.")
+    obj = bpy.context.scene.objects.get(name)
+    if obj is None:
+        return None, _common_transform_error(
+            "not_found", f"Object is not linked to the active scene: {name}"
+        )
+    return obj, None
+
+
+def _matrix_has_shear(matrix):
+    location, rotation, scale = matrix.decompose()
+    rebuilt = mathutils.Matrix.LocRotScale(location, rotation, scale)
+    return (
+        max(
+            abs(matrix[row][column] - rebuilt[row][column])
+            for row in range(4)
+            for column in range(4)
+        )
+        > COMMON_TRANSFORM_EPSILON
+    )
+
+
+def _common_transform_state(obj):
+    bpy.context.view_layer.update()
+    world_location, world_rotation, world_scale = obj.matrix_world.decompose()
+    world_euler = world_rotation.to_euler("XYZ")
+    return {
+        "name": obj.name,
+        "parent": obj.parent.name if obj.parent else None,
+        "world_location": list(world_location),
+        "world_rotation_degrees": [math.degrees(value) for value in world_euler],
+        "world_scale": list(world_scale),
+        "local_location": list(obj.location),
+        "local_scale": list(obj.scale),
+        "matrix_world": [list(row) for row in obj.matrix_world],
+    }
+
 
 class ModelingTransforms:
+    def object_move(self, name, delta):
+        """Move an active-scene object by a WORLD-space delta."""
+        obj, problem = _active_scene_object(name)
+        if problem:
+            return problem
+        vector, problem = _finite_xyz(delta, "delta")
+        if problem:
+            return problem
+
+        bpy.context.view_layer.update()
+        matrix = obj.matrix_world.copy()
+        matrix.translation += mathutils.Vector(vector)
+        obj.matrix_world = matrix
+        state = _common_transform_state(obj)
+        return {
+            "status": "success",
+            "operation": "object_move",
+            "semantics": {"space": "WORLD", "mode": "relative"},
+            "state": state,
+        }
+
+    def object_rotate(self, name, delta_degrees):
+        """Rotate an active-scene object by a WORLD-space XYZ Euler delta."""
+        obj, problem = _active_scene_object(name)
+        if problem:
+            return problem
+        vector, problem = _finite_xyz(delta_degrees, "delta_degrees")
+        if problem:
+            return problem
+
+        bpy.context.view_layer.update()
+        matrix = obj.matrix_world.copy()
+        if _matrix_has_shear(matrix):
+            return _common_transform_error(
+                "conflict",
+                "WORLD rotation is ambiguous for an object whose world matrix contains shear.",
+            )
+        location, rotation, scale = matrix.decompose()
+        delta_rotation = mathutils.Euler(
+            tuple(math.radians(value) for value in vector), "XYZ"
+        ).to_quaternion()
+        obj.matrix_world = mathutils.Matrix.LocRotScale(
+            location, (delta_rotation @ rotation).normalized(), scale
+        )
+        state = _common_transform_state(obj)
+        return {
+            "status": "success",
+            "operation": "object_rotate",
+            "semantics": {
+                "space": "WORLD",
+                "mode": "relative",
+                "order": "XYZ",
+                "unit": "degrees",
+                "pivot": "object_origin",
+            },
+            "state": state,
+        }
+
+    def object_scale(self, name, factors):
+        """Multiply LOCAL-axis object scale channels by XYZ factors."""
+        obj, problem = _active_scene_object(name)
+        if problem:
+            return problem
+        vector, problem = _finite_xyz(factors, "factors")
+        if problem:
+            return problem
+
+        obj.scale = tuple(obj.scale[index] * vector[index] for index in range(3))
+        state = _common_transform_state(obj)
+        return {
+            "status": "success",
+            "operation": "object_scale",
+            "semantics": {"space": "LOCAL", "mode": "multiplicative", "pivot": "object_origin"},
+            "state": state,
+        }
+
     def duplicate_object(
         self,
         object_name,

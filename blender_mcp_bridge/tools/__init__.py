@@ -19,6 +19,7 @@ from .provider import get_provider_tools
 from .rendering import get_rendering_tools
 from .scene import get_scene_tools
 from .sculpting import get_sculpting_tools
+from .transform import get_common_transform_tools
 
 
 def get_mcp_tools() -> list[types.Tool]:
@@ -29,6 +30,7 @@ def get_mcp_tools() -> list[types.Tool]:
     tools.extend(get_document_tools())
     tools.extend(get_object_query_tools())
     tools.extend(get_organization_tools())
+    tools.extend(get_common_transform_tools())
     tools.extend(get_scene_tools())
     tools.extend(get_collection_tools())
     tools.extend(get_modeling_tools())
