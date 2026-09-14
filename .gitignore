@@ -42,3 +42,13 @@ scratch/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Agent-local configuration (never product source)
+AGENTS.md
+.agents/
+CLAUDE.md
+.claude/
+.mcp.json
+
+# Internal development direction, roadmap and evidence
+_private/
