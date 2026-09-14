@@ -17,7 +17,7 @@
 - Current native acceptance baseline: **Blender 4.5.3 LTS on Windows 11**.
 - This is an evidence-backed acceptance target, not a claim that every Blender 4.x build/context is supported.
 - Background-mode fixtures currently cover runtime discovery plus deterministic document/object/organization/transform operations.
-- Live UI/addon lifecycle and UI-dependent context acceptance remain open B0 work; interactive capability must not be inferred from background success.
+- Live UI/addon lifecycle is verified on the baseline runtime using an isolated profile: enable, start/stop/restart, bridge-to-addon queries, and queue-timer survival across `document_new` pass with `background=false`, `ui_available=true`, and `view3d_available=true`. This does not imply every interactive modeling/sculpt context is ready; active mode/object requirements still apply.
 
 ## Transport
 
@@ -104,7 +104,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v6`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v7`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

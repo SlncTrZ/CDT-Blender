@@ -53,7 +53,9 @@ class BlenderMCPServer(
 
     def start_server(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
         if self.running:
-            return
+            self._register_timer()
+            return {"ok": True, "state": "running", "already_running": True}
+
         try:
             self.addon_log("Attempting to start MCP Server...")
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,38 +66,54 @@ class BlenderMCPServer(
             self.server_thread = threading.Thread(target=self._server_loop, daemon=True)
             self.server_thread.start()
             self._register_timer()
+            self.last_error = None
             self.addon_log(f"MCP Server successfully started on {host}:{port}")
             print(f"MCP Server started on {host}:{port}")
+            return {"ok": True, "state": "running", "already_running": False}
         except Exception as e:
-            import traceback
-
-            error_msg = f"Failed to start server: {e}\n{traceback.format_exc()}"
+            error_msg = f"Failed to start server: {e}"
+            self.last_error = error_msg
             print(error_msg)
             self.addon_log(error_msg)
+            self.stop_server()
+            return {"ok": False, "state": "stopped", "error": error_msg}
 
     def _register_timer(self):
-        if self.timer_handle:
-            try:
-                bpy.app.timers.unregister(self.timer_handle)
-            except Exception:
-                pass
-        self.timer_handle = self._process_queue
-        bpy.app.timers.register(self.timer_handle)
+        if self.timer_handle is None:
+            self.timer_handle = self._process_queue
+        if not bpy.app.timers.is_registered(self.timer_handle):
+            bpy.app.timers.register(self.timer_handle, persistent=True)
+
+    def _unregister_timer(self):
+        if self.timer_handle is None:
+            return
+        if bpy.app.timers.is_registered(self.timer_handle):
+            bpy.app.timers.unregister(self.timer_handle)
+        self.timer_handle = None
 
     def stop_server(self):
         self.running = False
-        if self.server_socket:
+
+        server_socket = self.server_socket
+        self.server_socket = None
+        if server_socket is not None:
             try:
-                self.server_socket.close()
+                server_socket.close()
             except Exception:
                 pass
-        if self.timer_handle:
+
+        self._unregister_timer()
+
+        server_thread = self.server_thread
+        self.server_thread = None
+        if server_thread is not None and server_thread is not threading.current_thread():
             try:
-                bpy.app.timers.unregister(self.timer_handle)
+                server_thread.join(timeout=2.0)
             except Exception:
                 pass
-            self.timer_handle = None
+
         print("MCP Server stopped")
+        return {"ok": True, "state": "stopped"}
 
     def _server_loop(self):
         while self.running:

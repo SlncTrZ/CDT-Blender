@@ -35,7 +35,7 @@ blender.export_fbx / blender.export_gltf
 
 After `help`, pin `contract_hash` (SHA-256 over `docs/TOOL_GUIDE.md`).
 Re-fetch `help` when the hash changes; treat a changed hash as a new
-contract version (`cdt-blender-contract-v6` at this revision).
+contract version (`cdt-blender-contract-v7` at this revision).
 
 ## Refusals the gateway must expect
 
@@ -50,7 +50,7 @@ contract version (`cdt-blender-contract-v6` at this revision).
 
 ## Verified runtime baseline
 
-Native provider acceptance is currently verified against **Blender 4.5.3 LTS on Windows 11**. Treat this as the tested baseline, not a blanket Blender 4.x compatibility claim. The live UI/addon lifecycle matrix is still an open B0 gate; gateway or background success must not be used to claim UI/sculpt readiness.
+Native provider acceptance is currently verified against **Blender 4.5.3 LTS on Windows 11**. Treat this as the tested baseline, not a blanket Blender 4.x compatibility claim. Live UI/addon lifecycle now has isolated-profile acceptance for enable, start/stop/restart, bridge-to-addon queries, and timer survival across `document_new`; this still must not be used to claim unsupported modeling/sculpt contexts ready.
 
 ## Windows-native deployment (no Docker)
 

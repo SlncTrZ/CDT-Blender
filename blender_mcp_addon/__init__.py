@@ -28,9 +28,15 @@ class BLENDERMCP_OT_StartServer(bpy.types.Operator):
         global _server_instance
         if _server_instance is None:
             _server_instance = BlenderMCPServer()
-        _server_instance.start_server()
-        self.report({"INFO"}, "MCP Server started")
-        return {"FINISHED"}
+        result = _server_instance.start_server()
+        if result["ok"]:
+            message = (
+                "MCP Server already running" if result["already_running"] else "MCP Server started"
+            )
+            self.report({"INFO"}, message)
+            return {"FINISHED"}
+        self.report({"ERROR"}, result["error"])
+        return {"CANCELLED"}
 
 
 class BLENDERMCP_OT_StopServer(bpy.types.Operator):
@@ -68,6 +74,8 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
             row = layout.row()
             row.label(text="Status: Stopped", icon="X")
             row.alert = True
+            if _server_instance and _server_instance.last_error:
+                layout.label(text=_server_instance.last_error, icon="ERROR")
 
         layout.operator("blendermcp.start_server")
         layout.operator("blendermcp.stop_server")

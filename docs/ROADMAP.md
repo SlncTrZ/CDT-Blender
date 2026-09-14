@@ -22,7 +22,7 @@ B0 remains **IN PROGRESS**. Native Blender 4.5.3 LTS acceptance on Windows 11 cu
 - collection-backed `organization_list` with hierarchy/visibility metadata;
 - explicit common `object_move`, `object_rotate` and `object_scale` semantics with parented-object read-after-write verification.
 
-Still required before B0 can close: live UI/addon lifecycle acceptance, final supported-version/context-matrix closure, and the remaining B0 integration gates. This checkpoint does **not** relax the completion invariant: Modeling and Sculpting remain mandatory end-to-end lanes.
+Live UI/addon lifecycle acceptance now passes on Blender 4.5.3 LTS / Windows 11: isolated-profile enable, start/stop/restart, bridge-to-addon runtime queries, and queue-timer survival across `document_new` are verified. Still required before B0 can close: final supported-version/context-matrix closure and the remaining B0 integration gates. This checkpoint does **not** relax the completion invariant: Modeling and Sculpting remain mandatory end-to-end lanes.
 
 ## 2. Runtime Architecture
 

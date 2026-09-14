@@ -40,7 +40,7 @@ B0 proves the supported Blender-version/context matrix and bridge/addon lifecycl
 - primitives/transforms;
 - real Blender integration tests.
 
-Current verified checkpoint (2026-09-14): B0 runtime discovery, document lifecycle, common object query, collection-backed organization listing and explicit common transforms have native acceptance on Blender 4.5.3 LTS. B0 is **not complete** until live UI/addon lifecycle and the remaining B0 integration gates are accepted.
+Current verified checkpoint (2026-09-14): B0 runtime discovery, document lifecycle, common object query, collection-backed organization listing, explicit common transforms, and live UI/addon lifecycle have native acceptance on Blender 4.5.3 LTS. B0 is **not complete** until the supported-version/context matrix and remaining B0 integration gates are closed.
 
 ## Start here
 
