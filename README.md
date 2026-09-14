@@ -42,9 +42,9 @@ B0 proves the supported Blender-version/context matrix and bridge/addon lifecycl
 
 ## Start here
 
-1. Read `AGENTS.md`.
-2. Read `docs/INITIAL_HANDOFF.md` and `docs/ROADMAP.md`.
-3. Read `docs/SPEC_BASELINE.md` plus `specs/**`.
-4. Research current `bpy` context behavior before choosing the bridge boundary.
+1. Read `docs/SPEC_BASELINE.md` and `docs/ROADMAP.md`.
+2. Read `specs/MCP_PROVIDER_STANDARD.md`, `specs/ARCHITECTURE.md` and `specs/CONTRACTS.md`.
+3. Read `docs/TOOL_GUIDE.md` and `docs/SLNCTRZ_INTEGRATION.md`.
+4. Research current `bpy` context behavior before changing the bridge boundary.
 
-References listed in the roadmap are MIT-licensed research inputs; adapt behavior/tests selectively rather than inheriting their public contract.
+Agent-local working instructions are supplied by the execution environment and are intentionally not part of the public repository. External research provenance is recorded in `ATTRIBUTION.md`.

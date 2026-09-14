@@ -28,10 +28,7 @@ Blender process
 
 A background/headless engine may coexist for deterministic file/scene/render operations, but it must not claim interactive modeling/sculpt capabilities that need a valid Blender UI/context.
 
-References:
-
-- `_private/reference/blender/blender-mcp` — MIT
-- `_private/reference/blender/blender-mcp-bridge` — MIT
+External research provenance and upstream pins are recorded in `ATTRIBUTION.md`. Local reference checkouts are non-contract development inputs and are intentionally excluded from the repository.
 
 Reuse behavior/tests/bridge patterns selectively; normalize public contract to CDT/SlncTrZ.
 
