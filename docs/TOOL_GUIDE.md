@@ -12,6 +12,13 @@
 - Gateway canonical tools: `blender.<tool>` (e.g. `blender.help`, `blender.create_primitive`).
 - Bare tool names are advertised by this provider; SlncTrZ-MCP owns namespacing.
 
+## Verified runtime baseline
+
+- Current native acceptance baseline: **Blender 4.5.3 LTS on Windows 11**.
+- This is an evidence-backed acceptance target, not a claim that every Blender 4.x build/context is supported.
+- Background-mode fixtures currently cover runtime discovery plus deterministic document/object/organization/transform operations.
+- Live UI/addon lifecycle and UI-dependent context acceptance remain open B0 work; interactive capability must not be inferred from background success.
+
 ## Transport
 
 - Network mode: Streamable HTTP `POST /mcp/` (stateless; MCP 2025-06-18; trailing slash — bare `/mcp` 307-redirects).

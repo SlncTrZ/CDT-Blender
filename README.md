@@ -19,7 +19,7 @@ Independent Blender MCP provider for the CDT engineering program (SlncTrZ provid
 > builders (architectural/MEP) are quarantined from the contract; standards
 > interpretation and Audit Reports belong to CDT_Engineer Production Domains.
 >
-> Status: **B0 provider shell forked** · Blender 4.x addon + bridge · Spec pin: `CDT_Engineer@643019c`
+> Status: **B0 baseline IN PROGRESS** · Native acceptance verified on **Blender 4.5.3 LTS / Windows 11** for runtime context discovery, document lifecycle, object query, organization listing and common transforms · Spec pin: `CDT_Engineer@643019c`
 
 ## Repository role
 
@@ -39,6 +39,8 @@ B0 proves the supported Blender-version/context matrix and bridge/addon lifecycl
 - object list/get;
 - primitives/transforms;
 - real Blender integration tests.
+
+Current verified checkpoint (2026-09-14): B0 runtime discovery, document lifecycle, common object query, collection-backed organization listing and explicit common transforms have native acceptance on Blender 4.5.3 LTS. B0 is **not complete** until live UI/addon lifecycle and the remaining B0 integration gates are accepted.
 
 ## Start here
 

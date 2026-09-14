@@ -48,6 +48,10 @@ contract version (`cdt-blender-contract-v6` at this revision).
 - `provider_unavailable`: Blender addon offline (`system_status.addon.connected`
   is the preflight signal; `help` and design-rule tools still answer).
 
+## Verified runtime baseline
+
+Native provider acceptance is currently verified against **Blender 4.5.3 LTS on Windows 11**. Treat this as the tested baseline, not a blanket Blender 4.x compatibility claim. The live UI/addon lifecycle matrix is still an open B0 gate; gateway or background success must not be used to claim UI/sculpt readiness.
+
 ## Windows-native deployment (no Docker)
 
 Blender (UI context, sculpt, render) is Windows-bound, so this provider

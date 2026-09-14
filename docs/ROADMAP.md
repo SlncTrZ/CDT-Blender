@@ -1,6 +1,6 @@
 # PLAN — Blender Provider
 
-> Lane: B · Target repo: `CDT-Blender` · Updated: 2026-09-09
+> Lane: B · Target repo: `CDT-Blender` · Updated: 2026-09-14
 > Governing docs: `MCP_PROVIDER_STANDARD.md`, `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`
 
 ## 1. Objective
@@ -11,6 +11,18 @@ Build a Blender MCP provider in an independent parallel delivery lane whose comp
 2. **Sculpting**
 
 Scene setup/rendering is important but is not sufficient to call the Blender provider complete.
+
+### Current verified checkpoint — 2026-09-14
+
+B0 remains **IN PROGRESS**. Native Blender 4.5.3 LTS acceptance on Windows 11 currently covers:
+
+- bounded runtime-context discovery with offline fail-closed behavior;
+- `.blend` document new/open/info/save/save-as/close semantics with contained paths;
+- deterministic active-scene object list/get/count;
+- collection-backed `organization_list` with hierarchy/visibility metadata;
+- explicit common `object_move`, `object_rotate` and `object_scale` semantics with parented-object read-after-write verification.
+
+Still required before B0 can close: live UI/addon lifecycle acceptance, final supported-version/context-matrix closure, and the remaining B0 integration gates. This checkpoint does **not** relax the completion invariant: Modeling and Sculpting remain mandatory end-to-end lanes.
 
 ## 2. Runtime Architecture
 
