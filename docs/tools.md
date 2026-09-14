@@ -1,4 +1,4 @@
-# Bridge Tool Reference — 104 tools
+# Bridge Tool Reference — 105 tools
 
 Auto-generated from the bridge tool schemas in `blender_mcp_bridge/tools/` (the single source of truth
 the MCP client sees). Regenerate after adding or changing a tool:
@@ -14,6 +14,7 @@ generator and fails loudly on drift.
 - [Provider](#provider) (3)
 - [Document](#document) (6)
 - [Object Query](#object-query) (3)
+- [Organization](#organization) (1)
 - [Scene & Diagnostics](#scene--diagnostics) (4)
 - [Collections](#collections) (7)
 - [Modeling](#modeling) (40)
@@ -54,6 +55,12 @@ generator and fails loudly on drift.
 | `object_count` | Count objects in the active Blender scene, optionally filtered by object type or exact collection name; includes counts grouped by Blender object type. | type, collection |
 | `object_get` | Get one object from the active Blender scene by its current exact Blender name, including common fields and Blender-specific extension data. | **name** |
 | `object_list` | List objects in the active Blender scene in deterministic name order. Results are bounded and may be filtered by object type or collection. | type, collection, offset, limit |
+
+## Organization
+
+| Tool | Description | Parameters (**bold** = required) |
+|---|---|---|
+| `organization_list` | List Blender collections reachable from the active scene as common organizations. Results are deterministic, bounded, and include hierarchy and Blender visibility metadata. | offset, limit |
 
 ## Scene & Diagnostics
 

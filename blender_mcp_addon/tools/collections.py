@@ -160,6 +160,106 @@ class CollectionTools:
             "message": msg,
         }
 
+    def organization_list(self, offset=0, limit=200):
+        """List active-scene collections using the common organization contract."""
+        max_limit = 1000
+        if offset < 0:
+            return {
+                "status": "error",
+                "kind": "validation_error",
+                "retryable": False,
+                "message": "offset must be >= 0.",
+            }
+        if limit < 1 or limit > max_limit:
+            return {
+                "status": "error",
+                "kind": "validation_error",
+                "retryable": False,
+                "message": f"limit must be between 1 and {max_limit}.",
+            }
+
+        root = bpy.context.scene.collection
+        reachable = {}
+        parents = {}
+
+        def visit(collection):
+            reachable[collection.name] = collection
+            for child in collection.children:
+                parents.setdefault(child.name, set()).add(collection.name)
+                if child.name not in reachable:
+                    visit(child)
+
+        visit(root)
+
+        layer_states = {}
+
+        def visit_layer(layer_collection, path):
+            collection_name = layer_collection.collection.name
+            layer_states.setdefault(collection_name, []).append(
+                {
+                    "path": path,
+                    "exclude": bool(layer_collection.exclude),
+                    "hide_viewport": bool(layer_collection.hide_viewport),
+                    "is_visible": bool(layer_collection.is_visible),
+                    "visible_get": bool(layer_collection.visible_get()),
+                }
+            )
+            for child in layer_collection.children:
+                visit_layer(child, [*path, child.collection.name])
+
+        visit_layer(bpy.context.view_layer.layer_collection, [root.name])
+
+        def native_handle(collection):
+            session_uid = getattr(collection, "session_uid", None)
+            if session_uid is None:
+                return None
+            return {
+                "kind": "session_uid",
+                "value": int(session_uid),
+                "scope": "blender_process",
+                "persistent": False,
+            }
+
+        organizations = []
+        for name, collection in sorted(
+            reachable.items(), key=lambda item: (item[0].casefold(), item[0])
+        ):
+            library = getattr(collection, "library", None)
+            organizations.append(
+                {
+                    "name": name,
+                    "kind": "collection",
+                    "is_root": collection == root,
+                    "parent_names": sorted(parents.get(name, set()), key=str.casefold),
+                    "child_names": sorted(
+                        (child.name for child in collection.children), key=str.casefold
+                    ),
+                    "direct_object_count": len(collection.objects),
+                    "native_handle": native_handle(collection),
+                    "extension": {
+                        "blender": {
+                            "hide_viewport": bool(collection.hide_viewport),
+                            "hide_render": bool(collection.hide_render),
+                            "color_tag": collection.color_tag,
+                            "library": library.filepath if library else None,
+                            "layer_states": layer_states.get(name, []),
+                        }
+                    },
+                }
+            )
+
+        window = organizations[offset : offset + limit]
+        return {
+            "status": "success",
+            "scene": bpy.context.scene.name,
+            "total": len(organizations),
+            "offset": offset,
+            "limit": limit,
+            "returned": len(window),
+            "truncated": offset + len(window) < len(organizations),
+            "organizations": window,
+        }
+
     def get_collections(self):
         """List all collections"""
 

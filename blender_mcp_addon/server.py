@@ -281,6 +281,8 @@ class BlenderMCPServer(
             "object_list": self.object_list,
             "object_get": self.object_get,
             "object_count": self.object_count,
+            # Common organization query
+            "organization_list": self.organization_list,
             # Scene
             "get_scene_info": self.get_scene_info,
             "get_object_info": self.get_object_info,

@@ -13,6 +13,7 @@ from .lighting import get_lighting_tools
 from .materials import get_material_tools
 from .modeling import get_modeling_tools
 from .object_query import get_object_query_tools
+from .organization import get_organization_tools
 from .printing import get_printing_tools
 from .provider import get_provider_tools
 from .rendering import get_rendering_tools
@@ -27,6 +28,7 @@ def get_mcp_tools() -> list[types.Tool]:
     tools.extend(get_provider_tools())
     tools.extend(get_document_tools())
     tools.extend(get_object_query_tools())
+    tools.extend(get_organization_tools())
     tools.extend(get_scene_tools())
     tools.extend(get_collection_tools())
     tools.extend(get_modeling_tools())
