@@ -6,6 +6,7 @@ from .animation import get_animation_tools
 from .camera import get_camera_tools
 from .collections import get_collection_tools
 from .design_rules import get_design_rule_tools
+from .document import get_document_tools
 from .history import get_history_tools
 from .interchange import get_interchange_tools
 from .lighting import get_lighting_tools
@@ -23,6 +24,7 @@ def get_mcp_tools() -> list[types.Tool]:
     tools = []
     # SlncTrZ provider contract FIRST (help, system_status, system_capabilities)
     tools.extend(get_provider_tools())
+    tools.extend(get_document_tools())
     tools.extend(get_scene_tools())
     tools.extend(get_collection_tools())
     tools.extend(get_modeling_tools())

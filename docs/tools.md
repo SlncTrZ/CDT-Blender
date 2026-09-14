@@ -1,4 +1,4 @@
-# Bridge Tool Reference — 95 tools
+# Bridge Tool Reference — 101 tools
 
 Auto-generated from the bridge tool schemas in `blender_mcp_bridge/tools/` (the single source of truth
 the MCP client sees). Regenerate after adding or changing a tool:
@@ -12,6 +12,7 @@ Every tool listed here has a matching handler in the Blender addon
 generator and fails loudly on drift.
 
 - [Provider](#provider) (3)
+- [Document](#document) (6)
 - [Scene & Diagnostics](#scene--diagnostics) (4)
 - [Collections](#collections) (7)
 - [Modeling](#modeling) (40)
@@ -33,6 +34,17 @@ generator and fails loudly on drift.
 | `help` | Read-only operating contract for the blender provider: versions, authentication, capabilities and the complete usage guide. Call first; no side effects. | — |
 | `system_capabilities` | Read-only machine-readable capability map with supported/unsupported modes and refusal reasons. Preflight before calling mutating tools. No side effects. | — |
 | `system_status` | Read-only liveness report: provider versions, transport mode, guide availability and Blender addon reachability (socket probe only). No side effects. | — |
+
+## Document
+
+| Tool | Description | Parameters (**bold** = required) |
+|---|---|---|
+| `document_close` | Close the current logical document without terminating Blender by resetting to an empty unsaved file. | discard_unsaved |
+| `document_info` | Read current Blender document identity, save state, scene and unit metadata. | — |
+| `document_new` | Replace the current file with a new empty Blender document. | discard_unsaved |
+| `document_open` | Open an existing .blend file inside the configured allow-roots. | **filepath**, discard_unsaved, load_ui |
+| `document_save` | Save the current .blend file to its existing path; unsaved documents must use document_save_as. | — |
+| `document_save_as` | Save the current Blender document to a .blend path inside the configured allow-roots. | **filepath**, overwrite, compress |
 
 ## Scene & Diagnostics
 

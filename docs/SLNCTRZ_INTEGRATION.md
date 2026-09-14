@@ -35,7 +35,7 @@ blender.export_fbx / blender.export_gltf
 
 After `help`, pin `contract_hash` (SHA-256 over `docs/TOOL_GUIDE.md`).
 Re-fetch `help` when the hash changes; treat a changed hash as a new
-contract version (`cdt-blender-contract-v2` at this revision).
+contract version (`cdt-blender-contract-v3` at this revision).
 
 ## Refusals the gateway must expect
 

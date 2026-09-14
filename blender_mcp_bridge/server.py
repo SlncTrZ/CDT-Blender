@@ -157,6 +157,9 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             )
         ]
 
+    if name in {"document_open", "document_save", "document_save_as"}:
+        clean_args["_allow_roots"] = _allow_roots()
+
     logger.info(f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args}")
 
     local_result = _answer_locally(name, clean_args)

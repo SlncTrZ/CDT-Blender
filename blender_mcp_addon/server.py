@@ -11,6 +11,7 @@ import bpy  # type: ignore
 from .tools.animation import AnimationTools
 from .tools.camera import CameraTools
 from .tools.collections import CollectionTools
+from .tools.document import DocumentTools
 from .tools.history import HistoryTools
 from .tools.interchange import InterchangeTools
 from .tools.lighting import LightTools
@@ -24,6 +25,7 @@ from .utils import DEFAULT_HOST, DEFAULT_PORT
 
 
 class BlenderMCPServer(
+    DocumentTools,
     SceneTools,
     CollectionTools,
     ModelingTools,
@@ -266,6 +268,13 @@ class BlenderMCPServer(
         methods = {
             # Runtime discovery (internal bridge command; not advertised as an MCP tool)
             "get_runtime_context": self.get_runtime_context,
+            # Common document lifecycle
+            "document_new": self.document_new,
+            "document_open": self.document_open,
+            "document_info": self.document_info,
+            "document_save": self.document_save,
+            "document_save_as": self.document_save_as,
+            "document_close": self.document_close,
             # Scene
             "get_scene_info": self.get_scene_info,
             "get_object_info": self.get_object_info,
