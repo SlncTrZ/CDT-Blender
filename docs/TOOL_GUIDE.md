@@ -51,7 +51,7 @@ Every tool is callable by name. Do not invent tool names.
 `system_capabilities` reports static implementation support plus `runtime_context` facts for the current Blender process. Unsupported means a typed refusal, never fake success. When the addon is offline or its context query cannot complete within the bounded discovery deadline, `runtime_context.context_available=false` with a stable reason:
 
 - `common.document.{new,open,info,save,save_as,close}` — supported by public `document_*` tools. Open/save paths are restricted to configured allow-roots; `document_close` preserves the Blender process/addon by resetting to an empty unsaved file instead of quitting Blender. In background mode Blender 4.5 does not provide a reliable clean/dirty signal, so destructive replace/open/close requires explicit `discard_unsaved=true`.
-- `common.object.{list,get,count}` — supported (objects/data blocks).
+- `common.object.{list,get,count}` — supported by public `object_*` tools scoped to the active scene. Lists are deterministic and bounded. Blender `session_uid` is exposed only as a non-persistent process-scoped native handle; object names remain the current lookup key.
 - `common.organization.list` — supported (collections).
 - `common.transform.{move,rotate,scale}` — supported (object/edit transforms).
 - `common.transaction.*` — UNSUPPORTED (`reason: no_atomic_transaction_use_undo_history`).
@@ -97,7 +97,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v3`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v4`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

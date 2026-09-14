@@ -18,7 +18,7 @@ PROVIDER_ID = "blender"
 PROVIDER_VERSION = "0.1.3+cdt.1"
 
 # Bump on any tool/capability change.
-CONTRACT_VERSION = "cdt-blender-contract-v3"
+CONTRACT_VERSION = "cdt-blender-contract-v4"
 
 # Applied CDT common semantics (subset claim — see CAPABILITIES).
 COMMON_CONTRACT_VERSION = "cdt-common-v1"

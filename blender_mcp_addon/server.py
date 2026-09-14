@@ -17,6 +17,7 @@ from .tools.interchange import InterchangeTools
 from .tools.lighting import LightTools
 from .tools.materials import MaterialTools
 from .tools.modeling import ModelingTools
+from .tools.object_query import ObjectQueryTools
 from .tools.printing import PrintingTools
 from .tools.rendering import RenderingTools
 from .tools.scene import SceneTools
@@ -26,6 +27,7 @@ from .utils import DEFAULT_HOST, DEFAULT_PORT
 
 class BlenderMCPServer(
     DocumentTools,
+    ObjectQueryTools,
     SceneTools,
     CollectionTools,
     ModelingTools,
@@ -275,6 +277,10 @@ class BlenderMCPServer(
             "document_save": self.document_save,
             "document_save_as": self.document_save_as,
             "document_close": self.document_close,
+            # Common object query
+            "object_list": self.object_list,
+            "object_get": self.object_get,
+            "object_count": self.object_count,
             # Scene
             "get_scene_info": self.get_scene_info,
             "get_object_info": self.get_object_info,
