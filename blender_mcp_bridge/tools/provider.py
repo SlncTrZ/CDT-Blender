@@ -17,6 +17,7 @@ from mcp import types
 
 from .. import provider_contract as contract
 from ..config import settings
+from ..connection import blender
 
 
 def get_provider_tools() -> list[types.Tool]:
@@ -87,6 +88,34 @@ def _addon_probe() -> dict[str, Any]:
         return {"connected": False, "host": host, "port": port, "reason": str(exc)}
 
 
+def _runtime_context_snapshot() -> dict[str, Any]:
+    """Return bounded runtime context; fail closed when the addon cannot answer."""
+    probe = _addon_probe()
+    if not probe.get("connected"):
+        return {
+            "backend_available": False,
+            "context_available": False,
+            "reason": "addon_unreachable",
+        }
+
+    response = blender.send_command("get_runtime_context", {}, rid="SYSCTX", timeout_seconds=2.0)
+    if (
+        not isinstance(response, dict)
+        or response.get("status") != "success"
+        or not isinstance(response.get("result"), dict)
+    ):
+        return {
+            "backend_available": True,
+            "context_available": False,
+            "reason": "runtime_context_unavailable",
+        }
+
+    snapshot = dict(response["result"])
+    snapshot["backend_available"] = True
+    snapshot["context_available"] = True
+    return snapshot
+
+
 def handle_help(_args: dict[str, Any]) -> dict[str, Any]:
     content = contract.read_guide()
     guide_file = contract.guide_path()
@@ -130,6 +159,7 @@ def handle_system_capabilities(_args: dict[str, Any]) -> dict[str, Any]:
             "mismatched context returns unsupported_capability or invalid_context"
         ),
         "capabilities": contract.CAPABILITIES,
+        "runtime_context": _runtime_context_snapshot(),
         "error_kinds": list(contract.ERROR_KINDS),
         "refusal_policy": (
             "Unsupported capabilities fail with kind unsupported_capability "

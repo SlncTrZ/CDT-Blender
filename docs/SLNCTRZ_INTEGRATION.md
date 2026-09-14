@@ -35,7 +35,7 @@ blender.export_fbx / blender.export_gltf
 
 After `help`, pin `contract_hash` (SHA-256 over `docs/TOOL_GUIDE.md`).
 Re-fetch `help` when the hash changes; treat a changed hash as a new
-contract version (`cdt-blender-contract-v1` → next).
+contract version (`cdt-blender-contract-v2` at this revision).
 
 ## Refusals the gateway must expect
 
@@ -77,7 +77,7 @@ Blender-side changes beyond these two tools.
 - [x] Streamable HTTP `/mcp` · [x] Bearer fail-closed ·
   [x] credentials externalized · [x] explicit tool schemas · [x] read-only
   `help` versioned/fingerprinted · [x] stable IDs · [x] documented errors ·
-  [x] health defined · [x] bounded timeouts (120 s bridge→addon socket) ·
+  [x] health defined · [x] bounded total bridge→addon deadlines (120 s default; 2 s runtime-context discovery) ·
   [x] no credential logging · [x] `<provider>.<tool>` namespace ·
   [x] business logic stays in provider ·
   [ ] gateway-side discovery + safe-call integration test (SlncTrZ-MCP lane)

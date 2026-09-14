@@ -142,6 +142,48 @@ class BlenderMCPServer(
             return {"status": "error", "message": "Command timed out"}
         return res_container["result"]
 
+    def get_runtime_context(self):
+        """Return current Blender process/context facts without mutating state."""
+        active_object = bpy.context.active_object
+        active_mode = bpy.context.mode
+        window_manager = bpy.context.window_manager
+        windows = list(window_manager.windows) if window_manager else []
+        background = bool(bpy.app.background)
+        ui_available = not background and bool(windows)
+
+        view3d_available = False
+        if ui_available:
+            view3d_available = any(
+                area.type == "VIEW_3D" and any(region.type == "WINDOW" for region in area.regions)
+                for window in windows
+                for area in window.screen.areas
+            )
+
+        active_object_payload = None
+        if active_object is not None:
+            active_object_payload = {
+                "name": active_object.name,
+                "type": active_object.type,
+            }
+
+        is_active_mesh = active_object is not None and active_object.type == "MESH"
+        scene = bpy.context.scene
+
+        return {
+            "blender_version": bpy.app.version_string,
+            "blender_version_tuple": list(bpy.app.version),
+            "background": background,
+            "ui_available": ui_available,
+            "view3d_available": view3d_available,
+            "active_mode": active_mode,
+            "active_object": active_object_payload,
+            "mesh_editable": bool(is_active_mesh and active_mode == "EDIT_MESH"),
+            "sculpt_context_available": bool(
+                ui_available and view3d_available and is_active_mesh and active_mode == "SCULPT"
+            ),
+            "render_engine": scene.render.engine if scene else None,
+        }
+
     def addon_log(self, msg):
         try:
             import os
@@ -222,6 +264,8 @@ class BlenderMCPServer(
         # Map types to methods (inherited from tool classes)
         # This keeps the dispatcher dynamic and maintains compatibility with existing client
         methods = {
+            # Runtime discovery (internal bridge command; not advertised as an MCP tool)
+            "get_runtime_context": self.get_runtime_context,
             # Scene
             "get_scene_info": self.get_scene_info,
             "get_object_info": self.get_object_info,

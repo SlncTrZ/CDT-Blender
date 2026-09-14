@@ -39,7 +39,7 @@
 
 - `help` — read-only operating contract (this guide + versions + fingerprint).
 - `system_status` — liveness, versions, addon reachability. No side effects.
-- `system_capabilities` — machine-readable capability map (see below).
+- `system_capabilities` — machine-readable implemented capability map plus a bounded live `runtime_context` snapshot from the Blender addon when available.
 - Design-rule advisory (`check_design`, `get_design_rules`,
   `list_design_topics`) answers from a local JSON file — milliseconds, no
   network, no Blender needed.
@@ -48,8 +48,7 @@ Every tool is callable by name. Do not invent tool names.
 
 ## Capability map (honest subset)
 
-`system_capabilities` reports this shape; unsupported means a typed refusal,
-never fake success:
+`system_capabilities` reports static implementation support plus `runtime_context` facts for the current Blender process. Unsupported means a typed refusal, never fake success. When the addon is offline or its context query cannot complete within the bounded discovery deadline, `runtime_context.context_available=false` with a stable reason:
 
 - `common.document.{new,open,info,save,save_as,close}` — supported (`.blend`/scene).
 - `common.object.{list,get,count}` — supported (objects/data blocks).
@@ -98,7 +97,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v1`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v2`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

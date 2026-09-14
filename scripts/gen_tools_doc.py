@@ -76,19 +76,26 @@ generator and fails loudly on drift.
 
 """
 out = hdr + "\n".join(toc) + "\n" + "\n".join(body) + "\n"
-with open(f"{ROOT}/docs/tools.md", "w", encoding="utf-8") as f:
+with open(f"{ROOT}/docs/tools.md", "w", encoding="utf-8", newline="\n") as f:
     f.write(out)
 print("wrote docs/tools.md -", total, "tools")
 
 # Drift check: every tool the bridge advertises must have an addon handler --
 # except locally-answered tools (design rules + provider contract), which
 # deliberately never reach the addon. Addon handlers without a bridge schema
-# must be in QUARANTINED (discipline builders kept out of the CDT contract).
+# must be explicitly classified as INTERNAL_ADDON_COMMANDS or QUARANTINED.
 srv = open(f"{ROOT}/blender_mcp_addon/server.py", encoding="utf-8").read()
 addon = set(re.findall(r'"([a-z0-9_]+)":\s*self\.', srv))
 bridge = {t.name for cat, mod, fn in CATS for t in getattr(importlib.import_module(mod), fn)()}
 from blender_mcp_bridge.tools.design_rules import DESIGN_RULE_HANDLERS  # noqa: E402
 from blender_mcp_bridge.tools.provider import PROVIDER_HANDLERS  # noqa: E402
+
+INTERNAL_ADDON_COMMANDS = {
+    # Read-only provider discovery path. Queried by system_capabilities but not
+    # advertised as a separate MCP tool.
+    "get_runtime_context",
+}
+
 
 QUARANTINED = {
     # Architectural discipline builders (CDT_Engineer domains own these).
@@ -104,7 +111,7 @@ QUARANTINED = {
 }
 
 bridge -= set(DESIGN_RULE_HANDLERS) | set(PROVIDER_HANDLERS)
-unexplained_addon = (addon - bridge) - QUARANTINED
+unexplained_addon = (addon - bridge) - QUARANTINED - INTERNAL_ADDON_COMMANDS
 drift = unexplained_addon | (bridge - addon)
 if drift:
     print("DRIFT:", sorted(unexplained_addon), sorted(bridge - addon))
@@ -113,6 +120,8 @@ print(
     "addon dispatch and bridge schemas are in sync:",
     len(bridge),
     "tools;",
+    len(INTERNAL_ADDON_COMMANDS),
+    "internal addon commands;",
     len(QUARANTINED),
     "quarantined discipline handlers (not advertised)",
 )

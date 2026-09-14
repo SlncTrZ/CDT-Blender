@@ -37,6 +37,9 @@ scratch/
 /temp_*.py
 /tmp_*.py
 
+# Local CLI/runtime state
+.local/
+
 # IDE / OS
 .vscode/
 .idea/

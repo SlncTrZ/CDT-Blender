@@ -90,7 +90,7 @@ jobs:
         run: uv sync --group dev
 
       - name: "pytest — offline suites"
-        run: uv run pytest tests/test_tool_schemas.py tests/test_sessions.py tests/test_design_rules.py -q
+        run: uv run pytest tests/test_tool_schemas.py tests/test_sessions.py tests/test_design_rules.py tests/test_provider_runtime.py tests/test_connection_deadline.py -q
 
   # ── 5. Provider contract consistency ───────────────────────────────────────
   #   docs/tools.md is generated from bridge schemas; the generator also
