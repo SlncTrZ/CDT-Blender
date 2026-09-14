@@ -35,7 +35,7 @@ blender.export_fbx / blender.export_gltf
 
 After `help`, pin `contract_hash` (SHA-256 over `docs/TOOL_GUIDE.md`).
 Re-fetch `help` when the hash changes; treat a changed hash as a new
-contract version (`cdt-blender-contract-v7` at this revision).
+contract version (`cdt-blender-contract-v8` at this revision).
 
 ## Refusals the gateway must expect
 
@@ -50,7 +50,7 @@ contract version (`cdt-blender-contract-v7` at this revision).
 
 ## Verified runtime baseline
 
-Native provider acceptance is currently verified against **Blender 4.5.3 LTS on Windows 11**. Treat this as the tested baseline, not a blanket Blender 4.x compatibility claim. Live UI/addon lifecycle now has isolated-profile acceptance for enable, start/stop/restart, bridge-to-addon queries, and timer survival across `document_new`; this still must not be used to claim unsupported modeling/sculpt contexts ready.
+Native provider acceptance is verified against exactly **Blender 4.5.3 LTS on Windows 11**. Legacy addon metadata uses 4.5.3 as its minimum version, while `system_capabilities.runtime_support` marks every other version/platform `unverified`. The accepted live matrix covers no active object, OBJECT, EDIT_MESH and SCULPT; authenticated provider-local MCP acceptance covers health, `help`, status/capabilities, auth rejection, and cube create → common `object_get` read-back. This still must not be used to claim unfinished modeling/sculpt capabilities ready.
 
 ## Windows-native deployment (no Docker)
 
@@ -84,4 +84,5 @@ Blender-side changes beyond these two tools.
   [x] health defined · [x] bounded total bridge→addon deadlines (120 s default; 2 s runtime-context discovery) ·
   [x] no credential logging · [x] `<provider>.<tool>` namespace ·
   [x] business logic stays in provider ·
-  [ ] gateway-side discovery + safe-call integration test (SlncTrZ-MCP lane)
+  [x] provider-local authenticated MCP discovery + safe native create/read-back ·
+  [ ] gateway-side catalog/policy discovery + safe-call test (SlncTrZ-MCP lane; external to this repo)

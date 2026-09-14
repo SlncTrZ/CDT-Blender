@@ -18,13 +18,54 @@ PROVIDER_ID = "blender"
 PROVIDER_VERSION = "0.1.3+cdt.1"
 
 # Bump on any tool/capability change.
-CONTRACT_VERSION = "cdt-blender-contract-v7"
+CONTRACT_VERSION = "cdt-blender-contract-v8"
 
 # Applied CDT common semantics (subset claim — see CAPABILITIES).
 COMMON_CONTRACT_VERSION = "cdt-common-v1"
 
 # MCP protocol / SDK compatibility declaration.
 PROTOCOL_VERSION = "MCP 2025-06-18 / mcp-py 1.x Streamable HTTP (stateless)"
+
+VERIFIED_BLENDER_VERSION_TUPLE = (4, 5, 3)
+VERIFIED_PLATFORM_SYSTEM = "Windows"
+RUNTIME_SUPPORT = {
+    "policy": "verified_native_baseline_only",
+    "verified_native_baselines": [
+        {
+            "blender_version": "4.5.3 LTS",
+            "blender_version_tuple": list(VERIFIED_BLENDER_VERSION_TUPLE),
+            "platform_system": VERIFIED_PLATFORM_SYSTEM,
+        }
+    ],
+    "other_versions_or_platforms": "unverified",
+    "context_matrix": {
+        "background": {
+            "background": True,
+            "ui_available": False,
+            "view3d_available": False,
+        },
+        "ui_no_active_object": {
+            "background": False,
+            "ui_available": True,
+            "view3d_available": True,
+            "active_object_required": False,
+        },
+        "ui_object": {
+            "active_mode": "OBJECT",
+            "active_mesh_required": True,
+        },
+        "ui_edit_mesh": {
+            "active_mode": "EDIT_MESH",
+            "active_mesh_required": True,
+            "mesh_editable": True,
+        },
+        "ui_sculpt": {
+            "active_mode": "SCULPT",
+            "active_mesh_required": True,
+            "sculpt_context_available": True,
+        },
+    },
+}
 
 ERROR_KINDS = [
     "authentication_error",

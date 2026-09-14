@@ -88,6 +88,17 @@ def _addon_probe() -> dict[str, Any]:
         return {"connected": False, "host": host, "port": port, "reason": str(exc)}
 
 
+def _runtime_support_status(snapshot: dict[str, Any]) -> str:
+    version = snapshot.get("blender_version_tuple")
+    version_tuple = tuple(version) if isinstance(version, (list, tuple)) else ()
+    if (
+        version_tuple == contract.VERIFIED_BLENDER_VERSION_TUPLE
+        and snapshot.get("platform_system") == contract.VERIFIED_PLATFORM_SYSTEM
+    ):
+        return "verified_native_baseline"
+    return "unverified_runtime"
+
+
 def _runtime_context_snapshot() -> dict[str, Any]:
     """Return bounded runtime context; fail closed when the addon cannot answer."""
     probe = _addon_probe()
@@ -113,6 +124,7 @@ def _runtime_context_snapshot() -> dict[str, Any]:
     snapshot = dict(response["result"])
     snapshot["backend_available"] = True
     snapshot["context_available"] = True
+    snapshot["runtime_support_status"] = _runtime_support_status(snapshot)
     return snapshot
 
 
@@ -155,9 +167,10 @@ def handle_system_capabilities(_args: dict[str, Any]) -> dict[str, Any]:
         "common_contract_version": contract.COMMON_CONTRACT_VERSION,
         "backend_note": (
             "in-Blender addon over local TCP; UI-context capabilities require a "
-            "running Blender with the addon started — never silently downgraded, "
-            "mismatched context returns unsupported_capability or invalid_context"
+            "running Blender with the addon started. Current UI/mode/object readiness is "
+            "reported through runtime_context; no unverified context-specific error kind is claimed."
         ),
+        "runtime_support": contract.RUNTIME_SUPPORT,
         "capabilities": contract.CAPABILITIES,
         "runtime_context": _runtime_context_snapshot(),
         "error_kinds": list(contract.ERROR_KINDS),

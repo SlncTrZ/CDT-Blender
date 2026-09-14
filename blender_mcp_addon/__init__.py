@@ -9,7 +9,7 @@ bl_info = {
     "name": "Blender MCP Bridge",
     "author": "seehiong",
     "version": (0, 1, 3),
-    "blender": (4, 0, 0),
+    "blender": (4, 5, 3),
     "location": "View3D > Sidebar > MCP",
     "description": "Blender Model Context Protocol (MCP) server for AI agents",
     "category": "Development",

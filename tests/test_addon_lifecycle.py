@@ -178,6 +178,12 @@ def _load_addon_module(monkeypatch):
     return module
 
 
+def test_addon_metadata_requires_verified_blender_minimum(monkeypatch):
+    module = _load_addon_module(monkeypatch)
+
+    assert module.bl_info["blender"] == (4, 5, 3)
+
+
 def test_start_operator_reports_bind_failure_truthfully(monkeypatch):
     module = _load_addon_module(monkeypatch)
 

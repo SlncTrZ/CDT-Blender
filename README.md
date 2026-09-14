@@ -19,7 +19,7 @@ Independent Blender MCP provider for the CDT engineering program (SlncTrZ provid
 > builders (architectural/MEP) are quarantined from the contract; standards
 > interpretation and Audit Reports belong to CDT_Engineer Production Domains.
 >
-> Status: **B0 baseline IN PROGRESS** · Native acceptance verified on **Blender 4.5.3 LTS / Windows 11** for runtime context discovery, document lifecycle, object query, organization listing and common transforms · Spec pin: `CDT_Engineer@643019c`
+> Status: **B0 baseline/context PASS** · Verified native baseline is **Blender 4.5.3 LTS / Windows 11**; other Blender versions/platforms remain **unverified** · Spec pin: `CDT_Engineer@643019c`
 
 ## Repository role
 
@@ -40,7 +40,7 @@ B0 proves the supported Blender-version/context matrix and bridge/addon lifecycl
 - primitives/transforms;
 - real Blender integration tests.
 
-Current verified checkpoint (2026-09-14): B0 runtime discovery, document lifecycle, common object query, collection-backed organization listing, explicit common transforms, and live UI/addon lifecycle have native acceptance on Blender 4.5.3 LTS. B0 is **not complete** until the supported-version/context matrix and remaining B0 integration gates are closed.
+Current verified checkpoint (2026-09-14): **B0 baseline/context is accepted** on Blender 4.5.3 LTS / Windows 11. Native evidence covers background discovery plus live UI with no active object, OBJECT, EDIT_MESH and SCULPT contexts; authenticated Streamable HTTP MCP discovery/status/capabilities and cube create → `object_get` read-back are accepted end-to-end. The addon metadata minimum is 4.5.3, while later Blender versions and non-Windows platforms remain unverified rather than implicitly supported. This B0 checkpoint does **not** mean the provider is complete: Modeling and Sculpting remain mandatory end-to-end lanes.
 
 ## Start here
 

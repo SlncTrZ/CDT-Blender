@@ -14,10 +14,12 @@
 
 ## Verified runtime baseline
 
-- Current native acceptance baseline: **Blender 4.5.3 LTS on Windows 11**.
-- This is an evidence-backed acceptance target, not a claim that every Blender 4.x build/context is supported.
-- Background-mode fixtures currently cover runtime discovery plus deterministic document/object/organization/transform operations.
-- Live UI/addon lifecycle is verified on the baseline runtime using an isolated profile: enable, start/stop/restart, bridge-to-addon queries, and queue-timer survival across `document_new` pass with `background=false`, `ui_available=true`, and `view3d_available=true`. This does not imply every interactive modeling/sculpt context is ready; active mode/object requirements still apply.
+- The single native acceptance baseline is **Blender 4.5.3 LTS on Windows 11**.
+- Legacy addon metadata therefore declares Blender **4.5.3** as its minimum version. That field is only a minimum-version gate; it is not evidence that later Blender versions are supported.
+- `system_capabilities.runtime_support.policy=verified_native_baseline_only`. Only Blender 4.5.3 on Windows classifies as `runtime_context.runtime_support_status=verified_native_baseline`; every other version/platform is reported as `unverified_runtime`, not silently supported or rejected.
+- Native context evidence covers background discovery plus live UI with no active object, OBJECT, EDIT_MESH and SCULPT. `mesh_editable=true` is verified only for the EDIT_MESH row; `sculpt_context_available=true` is verified only for the SCULPT row with an active mesh and VIEW_3D window context.
+- Background-mode fixtures cover deterministic document/object/organization/transform operations. Live UI/addon lifecycle is verified using an isolated profile: enable, start/stop/restart/disable, bridge-to-addon queries, and queue-timer survival across `document_new`.
+- These B0 context facts are preflight data, not a blanket claim that every later modeling/sculpt operation is complete; tool-specific requirements and unsupported capability declarations still apply.
 
 ## Transport
 
@@ -46,7 +48,7 @@
 
 - `help` — read-only operating contract (this guide + versions + fingerprint).
 - `system_status` — liveness, versions, addon reachability. No side effects.
-- `system_capabilities` — machine-readable implemented capability map plus a bounded live `runtime_context` snapshot from the Blender addon when available.
+- `system_capabilities` — machine-readable implemented capability map, the evidence-backed `runtime_support` matrix, plus a bounded live `runtime_context` snapshot from the Blender addon when available.
 - Design-rule advisory (`check_design`, `get_design_rules`,
   `list_design_topics`) answers from a local JSON file — milliseconds, no
   network, no Blender needed.
@@ -55,7 +57,7 @@ Every tool is callable by name. Do not invent tool names.
 
 ## Capability map (honest subset)
 
-`system_capabilities` reports static implementation support plus `runtime_context` facts for the current Blender process. Unsupported means a typed refusal, never fake success. When the addon is offline or its context query cannot complete within the bounded discovery deadline, `runtime_context.context_available=false` with a stable reason:
+`system_capabilities` reports static implementation support plus `runtime_support` and `runtime_context` facts for the current Blender process. Unsupported means a typed refusal, never fake success. Version/platform evidence is separate from feature support: an otherwise callable runtime outside the verified 4.5.3/Windows baseline is marked `unverified_runtime`. When the addon is offline or its context query cannot complete within the bounded discovery deadline, `runtime_context.context_available=false` with a stable reason:
 
 - `common.document.{new,open,info,save,save_as,close}` — supported by public `document_*` tools. Open/save paths are restricted to configured allow-roots; `document_close` preserves the Blender process/addon by resetting to an empty unsaved file instead of quitting Blender. In background mode Blender 4.5 does not provide a reliable clean/dirty signal, so destructive replace/open/close requires explicit `discard_unsaved=true`.
 - `common.object.{list,get,count}` — supported by public `object_*` tools scoped to the active scene. Lists are deterministic and bounded. Blender `session_uid` is exposed only as a non-persistent process-scoped native handle; object names remain the current lookup key.
@@ -88,8 +90,9 @@ Every tool is callable by name. Do not invent tool names.
 3. Writes are destructive by name (`delete_*`, `remove_*`, `apply_*` bake
    data); ordinary edits vs destructive ops are separated in descriptions.
 4. Context matters: UI-context capabilities need a running Blender with the
-   addon started. Headless/background use is limited to deterministic
-   file/scene operations — never claim interactive results from it.
+   addon started. Background use is limited to the deterministic operations
+   actually proven by native fixtures; never infer VIEW_3D/edit/sculpt readiness
+   from background success. Preflight `runtime_context` before context-sensitive work.
 5. Engineering interpretation (standards compliance, Audit Reports) belongs
   to CDT_Engineer Production Domains — this provider reports 3D facts
   (geometry, topology, measurements) only.
@@ -104,7 +107,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v7`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v8`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

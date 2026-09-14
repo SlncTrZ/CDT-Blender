@@ -1,6 +1,7 @@
 # blender_mcp_addon/server.py
 
 import json
+import platform
 import queue
 import socket
 import threading
@@ -194,6 +195,7 @@ class BlenderMCPServer(
         return {
             "blender_version": bpy.app.version_string,
             "blender_version_tuple": list(bpy.app.version),
+            "platform_system": platform.system(),
             "background": background,
             "ui_available": ui_available,
             "view3d_available": view3d_available,

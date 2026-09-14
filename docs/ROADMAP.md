@@ -14,15 +14,18 @@ Scene setup/rendering is important but is not sufficient to call the Blender pro
 
 ### Current verified checkpoint — 2026-09-14
 
-B0 remains **IN PROGRESS**. Native Blender 4.5.3 LTS acceptance on Windows 11 currently covers:
+B0 baseline/context is **PASS** on the single evidence-backed native baseline **Blender 4.5.3 LTS / Windows 11**. Acceptance covers:
 
 - bounded runtime-context discovery with offline fail-closed behavior;
 - `.blend` document new/open/info/save/save-as/close semantics with contained paths;
 - deterministic active-scene object list/get/count;
 - collection-backed `organization_list` with hierarchy/visibility metadata;
-- explicit common `object_move`, `object_rotate` and `object_scale` semantics with parented-object read-after-write verification.
+- explicit common `object_move`, `object_rotate` and `object_scale` semantics with parented-object read-after-write verification;
+- isolated-profile addon enable/start/stop/restart/disable and queue-timer survival across `document_new`;
+- live UI context rows for no active object, OBJECT, EDIT_MESH and SCULPT, with truthful `mesh_editable` / `sculpt_context_available` state;
+- authenticated Streamable HTTP MCP health/discovery/status/capabilities plus cube create → `object_get` read-back and cleanup.
 
-Live UI/addon lifecycle acceptance now passes on Blender 4.5.3 LTS / Windows 11: isolated-profile enable, start/stop/restart, bridge-to-addon runtime queries, and queue-timer survival across `document_new` are verified. Still required before B0 can close: final supported-version/context-matrix closure and the remaining B0 integration gates. This checkpoint does **not** relax the completion invariant: Modeling and Sculpting remain mandatory end-to-end lanes.
+The addon metadata minimum is 4.5.3 because Blender's legacy `bl_info.blender` field is a minimum-version declaration. `system_capabilities.runtime_support` treats only 4.5.3/Windows as the verified native baseline; other versions/platforms are `unverified`, not silently supported or rejected. Gateway-side catalog/policy acceptance remains a separate SlncTrZ-MCP integration-lane item, and B1+ reliability/modeling/sculpting work is not pulled into B0. This checkpoint does **not** relax the completion invariant: Modeling and Sculpting remain mandatory end-to-end lanes.
 
 ## 2. Runtime Architecture
 

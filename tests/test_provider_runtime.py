@@ -26,6 +26,8 @@ def test_runtime_context_fails_closed_when_addon_is_unreachable(monkeypatch):
 def test_runtime_context_unwraps_native_snapshot(monkeypatch):
     native = {
         "blender_version": "4.5.3 LTS",
+        "blender_version_tuple": [4, 5, 3],
+        "platform_system": "Windows",
         "background": False,
         "ui_available": True,
         "view3d_available": True,
@@ -56,6 +58,7 @@ def test_runtime_context_unwraps_native_snapshot(monkeypatch):
     assert snapshot["context_available"] is True
     assert snapshot["blender_version"] == "4.5.3 LTS"
     assert snapshot["active_object"] == {"name": "Cube", "type": "MESH"}
+    assert snapshot["runtime_support_status"] == "verified_native_baseline"
 
 
 def test_system_capabilities_exposes_runtime_context(monkeypatch):
@@ -72,6 +75,38 @@ def test_system_capabilities_exposes_runtime_context(monkeypatch):
 
     assert payload["runtime_context"] == runtime
     assert payload["capabilities"]
+    assert payload["runtime_support"]["policy"] == "verified_native_baseline_only"
+    assert payload["runtime_support"]["verified_native_baselines"] == [
+        {
+            "blender_version": "4.5.3 LTS",
+            "blender_version_tuple": [4, 5, 3],
+            "platform_system": "Windows",
+        }
+    ]
+    assert payload["runtime_support"]["other_versions_or_platforms"] == "unverified"
+    assert "invalid_context" not in payload["error_kinds"]
+    assert "invalid_context" not in payload["backend_note"]
+
+
+def test_runtime_support_classification_is_exact_not_minimum_version():
+    assert (
+        provider._runtime_support_status(
+            {"blender_version_tuple": [4, 5, 3], "platform_system": "Windows"}
+        )
+        == "verified_native_baseline"
+    )
+    assert (
+        provider._runtime_support_status(
+            {"blender_version_tuple": [4, 5, 4], "platform_system": "Windows"}
+        )
+        == "unverified_runtime"
+    )
+    assert (
+        provider._runtime_support_status(
+            {"blender_version_tuple": [4, 5, 3], "platform_system": "Linux"}
+        )
+        == "unverified_runtime"
+    )
 
 
 def test_runtime_context_command_is_internal_not_public_mcp_tool():
