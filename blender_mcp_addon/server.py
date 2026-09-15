@@ -5,6 +5,7 @@ import platform
 import queue
 import socket
 import threading
+import time
 import traceback
 
 import bpy  # type: ignore
@@ -24,6 +25,20 @@ from .tools.rendering import RenderingTools
 from .tools.scene import SceneTools
 from .tools.sculpting import SculptingTools
 from .utils import DEFAULT_HOST, DEFAULT_PORT
+
+MAX_REQUEST_BYTES = 1024 * 1024
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+REQUEST_RECEIVE_TIMEOUT_SECONDS = 5.0
+SOCKET_CHUNK_BYTES = 4096
+
+
+def _transport_error(kind, message, *, retryable=False):
+    return {
+        "status": "error",
+        "kind": kind,
+        "retryable": retryable,
+        "message": message,
+    }
 
 
 class BlenderMCPServer(
@@ -133,19 +148,92 @@ class BlenderMCPServer(
                 if self.running:
                     print(f"[MCP] Server loop error: {e}")
 
+    def _receive_request(self, client):
+        deadline = time.monotonic() + REQUEST_RECEIVE_TIMEOUT_SECONDS
+        data = bytearray()
+
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None, _transport_error(
+                    "timeout",
+                    "Request receive deadline exceeded.",
+                    retryable=True,
+                )
+
+            try:
+                client.settimeout(remaining)
+                chunk = client.recv(SOCKET_CHUNK_BYTES)
+            except TimeoutError:
+                return None, _transport_error(
+                    "timeout",
+                    "Request receive deadline exceeded.",
+                    retryable=True,
+                )
+
+            if not chunk:
+                return None, _transport_error(
+                    "validation_error",
+                    "Request ended before one complete JSON object was received.",
+                )
+
+            data.extend(chunk)
+            if len(data) > MAX_REQUEST_BYTES:
+                return None, _transport_error(
+                    "validation_error",
+                    "Request exceeds transport byte budget.",
+                )
+
+            try:
+                text = data.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                if exc.end == len(data) and exc.reason == "unexpected end of data":
+                    continue
+                return None, _transport_error(
+                    "validation_error",
+                    "Request is not valid UTF-8.",
+                )
+
+            try:
+                command = json.loads(text)
+            except json.JSONDecodeError:
+                continue
+
+            if not isinstance(command, dict):
+                return None, _transport_error(
+                    "validation_error",
+                    "Request must be one JSON object.",
+                )
+            return command, None
+
+    def _encode_response(self, response):
+        encoded = json.dumps(response, separators=(",", ":")).encode("utf-8")
+        if len(encoded) <= MAX_RESPONSE_BYTES:
+            return encoded
+        return json.dumps(
+            _transport_error(
+                "internal_error",
+                "Response exceeds transport byte budget.",
+            ),
+            separators=(",", ":"),
+        ).encode("utf-8")
+
     def _handle_client(self, client):
         try:
-            client.settimeout(180.0)
-            data = client.recv(8192)
-            if not data:
-                return
-            command = json.loads(data.decode("utf-8"))
-            response = self.handle_command(command)
-            client.sendall(json.dumps(response).encode("utf-8"))
+            command, error = self._receive_request(client)
+            response = error if error is not None else self.handle_command(command)
+            client.sendall(self._encode_response(response))
         except Exception as e:
             print(f"[MCP] Client error: {e}")
             try:
-                client.sendall(json.dumps({"status": "error", "message": str(e)}).encode("utf-8"))
+                client.sendall(
+                    self._encode_response(
+                        _transport_error(
+                            "internal_error",
+                            "Transport failure while handling Blender command.",
+                        )
+                    )
+                )
             except Exception:
                 pass
         finally:

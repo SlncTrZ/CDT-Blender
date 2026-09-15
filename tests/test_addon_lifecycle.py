@@ -5,6 +5,7 @@ Wing: blender | Topic: live-addon-lifecycle | Updated: 2026-09-14 19:45
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -283,3 +284,117 @@ def test_repeated_stop_is_idempotent(monkeypatch, repeat):
     assert server.server_socket is None
     assert server.server_thread is None
     assert server.timer_handle is None
+
+
+class ScriptedClient:
+    def __init__(self, events):
+        self.events = list(events)
+        self.sent: list[bytes] = []
+        self.timeouts: list[float] = []
+        self.closed = False
+
+    def settimeout(self, timeout):
+        self.timeouts.append(timeout)
+
+    def recv(self, _size):
+        if not self.events:
+            return b""
+        event = self.events.pop(0)
+        if isinstance(event, BaseException):
+            raise event
+        return event
+
+    def sendall(self, data):
+        self.sent.append(data)
+
+    def close(self):
+        self.closed = True
+
+
+def _last_response(client: ScriptedClient):
+    assert client.sent
+    return json.loads(client.sent[-1].decode("utf-8"))
+
+
+def test_addon_transport_reassembles_fragmented_json_request(monkeypatch):
+    module, _timers = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    received = []
+    server.handle_command = lambda command: received.append(command) or {
+        "status": "success",
+        "result": {"ok": True},
+    }
+    client = ScriptedClient(
+        [b'{"type":"get_runtime_', b'context","params":{},"request_id":"frag"}']
+    )
+
+    server._handle_client(client)
+
+    assert received == [
+        {"type": "get_runtime_context", "params": {}, "request_id": "frag"}
+    ]
+    assert _last_response(client) == {"status": "success", "result": {"ok": True}}
+    assert client.closed is True
+
+
+def test_addon_transport_rejects_malformed_eof_with_typed_error(monkeypatch):
+    module, _timers = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    client = ScriptedClient([b'{"type":', b""])
+
+    server._handle_client(client)
+
+    response = _last_response(client)
+    assert response["status"] == "error"
+    assert response["kind"] == "validation_error"
+    assert response["retryable"] is False
+    assert client.closed is True
+
+
+def test_addon_transport_times_out_idle_sender_with_typed_error(monkeypatch):
+    module, _timers = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    client = ScriptedClient([TimeoutError("idle")])
+
+    server._handle_client(client)
+
+    response = _last_response(client)
+    assert response["status"] == "error"
+    assert response["kind"] == "timeout"
+    assert response["retryable"] is True
+    assert client.closed is True
+
+
+def test_addon_transport_rejects_request_over_budget(monkeypatch):
+    module, _timers = _load_server_module(monkeypatch)
+    monkeypatch.setattr(module, "MAX_REQUEST_BYTES", 32, raising=False)
+    server = module.BlenderMCPServer()
+    client = ScriptedClient([b'{"type":"x","params":{"blob":"' + b"a" * 64])
+
+    server._handle_client(client)
+
+    response = _last_response(client)
+    assert response["status"] == "error"
+    assert response["kind"] == "validation_error"
+    assert "request" in response["message"].lower()
+    assert "budget" in response["message"].lower()
+
+
+def test_addon_transport_replaces_oversized_response_with_typed_error(monkeypatch):
+    module, _timers = _load_server_module(monkeypatch)
+    monkeypatch.setattr(module, "MAX_RESPONSE_BYTES", 64, raising=False)
+    server = module.BlenderMCPServer()
+    server.handle_command = lambda _command: {
+        "status": "success",
+        "result": {"blob": "x" * 256},
+    }
+    client = ScriptedClient([b'{"type":"get_runtime_context","params":{}}'])
+
+    server._handle_client(client)
+
+    response = _last_response(client)
+    assert response["status"] == "error"
+    assert response["kind"] == "internal_error"
+    assert response["retryable"] is False
+    assert "response" in response["message"].lower()
+    assert "budget" in response["message"].lower()
