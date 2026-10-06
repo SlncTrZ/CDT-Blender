@@ -1,6 +1,7 @@
 # blender_mcp_addon/server.py
 
 import json
+import os
 import platform
 import queue
 import socket
@@ -114,7 +115,7 @@ class BlenderMCPServer(
         if bpy.app.timers.is_registered(self.timer_handle):
             bpy.app.timers.unregister(self.timer_handle)
         self.timer_handle = None
-        self.lifecycle = MutationLifecycleManager()
+        # F07: Do NOT discard lifecycle receipts / uncertainty state on timer unregister!
 
     def stop_server(self):
         self.running = False
@@ -340,20 +341,41 @@ class BlenderMCPServer(
         return res_container["result"]
 
     def reconcile_operation(self, op_id: str, action: str = "query", **kwargs):
-        """Reconcile receipt state of an operation, optionally verifying native Blender state."""
+        """Reconcile receipt state of an operation, verifying postconditions on native state."""
 
         def _verifier(receipt):
             cmd = receipt.get("cmd_type", "")
             res = receipt.get("result")
             if isinstance(res, dict) and "result" in res:
                 res = res["result"]
-            if isinstance(res, dict) and "name" in res:
-                obj_name = res["name"]
-                if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
-                    return {"verified": True, "object_exists": True, "object_name": obj_name}
-            if cmd in ("document_new", "document_open", "document_save"):
+
+            # F10: Verify object creation postconditions
+            if cmd in ("create_cube", "create_primitive", "create_cylinder", "create_sphere"):
+                if isinstance(res, dict) and "name" in res:
+                    obj_name = res["name"]
+                    if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
+                        obj = bpy.data.objects[obj_name]
+                        # Verify object has mesh data and matches expected type
+                        if getattr(obj, "type", None) == "MESH" and getattr(obj, "data", None) is not None:
+                            return {
+                                "verified": True,
+                                "object_exists": True,
+                                "object_name": obj_name,
+                                "vertex_count": len(obj.data.vertices),
+                            }
+                return {"verified": False, "note": "Target object or mesh data not found"}
+
+            # F10: Verify document save/open target matches expected filepath
+            if cmd in ("document_save", "document_save_as", "document_open"):
+                curr_fp = getattr(bpy.data, "filepath", "")
+                if curr_fp and os.path.exists(curr_fp):
+                    return {"verified": True, "filepath": curr_fp, "file_exists": True}
+                return {"verified": False, "note": "Document filepath is empty or does not exist"}
+
+            if cmd == "document_new":
                 return {"verified": True, "filepath": getattr(bpy.data, "filepath", "")}
-            return {"verified": False, "note": "No native verifier available for command"}
+
+            return {"verified": False, "note": f"No native verifier available for command {cmd}"}
 
         return self.lifecycle.reconcile(op_id, action=action, native_verifier=_verifier)
 
@@ -670,6 +692,28 @@ class BlenderMCPServer(
 
         try:
             result = handler(**params)
+
+            # F06: Check if business logic reported failure
+            is_business_error = False
+            error_msg = None
+            if isinstance(result, dict):
+                success_val = result.get("success")
+                if success_val is not None and not success_val:
+                    is_business_error = True
+                    error_msg = result.get("error") or result.get("message") or "Operation failed"
+                elif result.get("status") == "error":
+                    is_business_error = True
+                    error_msg = result.get("message") or result.get("error") or "Operation error"
+
+            if is_business_error:
+                return {
+                    "status": "error",
+                    "kind": "business_failure",
+                    "retryable": False,
+                    "message": error_msg,
+                    "result": result,
+                }
+
             if isinstance(result, dict) and "message" in result:
                 msg = result["message"]
                 if not msg.startswith(f"[{rid}]"):
