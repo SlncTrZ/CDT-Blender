@@ -289,11 +289,7 @@ def _attach_mutation_identity(name: str, blender_res, op_id, rid):
     the first-execution success/error path does not. Every mutation outcome must
     carry the identity it ran under so the caller can reconcile after a timeout.
     """
-    if (
-        is_mutation_tool(name)
-        and isinstance(blender_res, dict)
-        and "op_id" not in blender_res
-    ):
+    if is_mutation_tool(name) and isinstance(blender_res, dict) and "op_id" not in blender_res:
         blender_res["op_id"] = op_id or rid
     return blender_res
 
