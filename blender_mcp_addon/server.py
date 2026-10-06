@@ -8,11 +8,10 @@ import threading
 import time
 import traceback
 import uuid
-import time
-from .lifecycle import MutationLifecycleManager, ReceiptState
 
 import bpy  # type: ignore
 
+from .lifecycle import MutationLifecycleManager
 from .tools.animation import AnimationTools
 from .tools.camera import CameraTools
 from .tools.collections import CollectionTools
@@ -268,9 +267,7 @@ class BlenderMCPServer(
 
         # BL-02 deadline tracking
         timeout = float(
-            command.get("timeout")
-            or command.get("timeout_seconds")
-            or COMMAND_WAIT_TIMEOUT_SECONDS
+            command.get("timeout") or command.get("timeout_seconds") or COMMAND_WAIT_TIMEOUT_SECONDS
         )
         deadline = time.monotonic() + timeout
         command["deadline"] = deadline
@@ -344,6 +341,7 @@ class BlenderMCPServer(
 
     def reconcile_operation(self, op_id: str, action: str = "query", **kwargs):
         """Reconcile receipt state of an operation, optionally verifying native Blender state."""
+
         def _verifier(receipt):
             cmd = receipt.get("cmd_type", "")
             res = receipt.get("result")

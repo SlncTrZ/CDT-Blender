@@ -49,7 +49,7 @@ class SculptingTools:
             }
 
         obj = bpy.context.active_object
-        currently_enabled = getattr(obj, 'use_dynamic_topology_sculpting', False)
+        currently_enabled = getattr(obj, "use_dynamic_topology_sculpting", False)
 
         if enabled and not currently_enabled:
             bpy.ops.sculpt.dynamic_topology_toggle()
@@ -57,9 +57,9 @@ class SculptingTools:
             bpy.ops.sculpt.dynamic_topology_toggle()
 
         sculpt = bpy.context.scene.tool_settings.sculpt
-        if hasattr(sculpt, 'detail_size'):
+        if hasattr(sculpt, "detail_size"):
             sculpt.detail_size = detail_size
-        if hasattr(sculpt, 'detail_type_method'):
+        if hasattr(sculpt, "detail_type_method"):
             sculpt.detail_type_method = "CONSTANT" if constant_detail else "RELATIVE"
 
         return {
