@@ -260,11 +260,6 @@ class BlenderMCPServer(
         command["request_id"] = op_id
         cmd_type = command.get("type", "")
 
-        # BL-01 idempotency & uncertain predecessor check
-        admission_rejection = self.lifecycle.check_admission(cmd_type, op_id)
-        if admission_rejection is not None:
-            return admission_rejection
-
         # BL-02 deadline tracking
         timeout = float(
             command.get("timeout") or command.get("timeout_seconds") or COMMAND_WAIT_TIMEOUT_SECONDS
@@ -272,10 +267,15 @@ class BlenderMCPServer(
         deadline = time.monotonic() + timeout
         command["deadline"] = deadline
 
+        # BL-01 / F02 / F11: Atomic reservation, fingerprinting, and admission check
+        admitted, rejection = self.lifecycle.reserve_and_admit(
+            cmd_type, op_id, command.get("params"), deadline
+        )
+        if not admitted:
+            return rejection
+
         result_event = threading.Event()
         res_container = {"result": None, "op_id": op_id, "dispatched": False}
-
-        self.lifecycle.record_pending(op_id, cmd_type, command.get("params", {}), deadline)
 
         try:
             self.command_queue.put_nowait(
@@ -289,7 +289,7 @@ class BlenderMCPServer(
                 }
             )
         except queue.Full:
-            self.lifecycle.record_failed(op_id, "Admission queue full")
+            self.lifecycle.rollback_reservation(op_id, "Admission queue full")
             return {
                 "status": "error",
                 "kind": "rate_limited",
@@ -440,6 +440,21 @@ class BlenderMCPServer(
                             "message": f"Command '{cmd_type}' [{op_id}] expired before dispatch; not started.",
                             "receipt": self.lifecycle.get_receipt(op_id),
                         }
+                        event.set()
+                        continue
+
+                    # F03: Check predecessor uncertainty before dispatching queued mutation
+                    can_dispatch, predecessor_block = self.lifecycle.can_dispatch_queued(
+                        op_id, cmd_type
+                    )
+                    if not can_dispatch and predecessor_block is not None:
+                        self.lifecycle.record_failed(
+                            op_id,
+                            predecessor_block.get(
+                                "message", "Predecessor became uncertain while queued"
+                            ),
+                        )
+                        res["result"] = predecessor_block
                         event.set()
                         continue
 

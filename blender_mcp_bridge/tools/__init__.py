@@ -9,6 +9,7 @@ from .design_rules import get_design_rule_tools
 from .document import get_document_tools
 from .history import get_history_tools
 from .interchange import get_interchange_tools
+from .lifecycle import get_lifecycle_tools
 from .lighting import get_lighting_tools
 from .materials import get_material_tools
 from .modeling import get_modeling_tools
@@ -27,6 +28,7 @@ def get_mcp_tools() -> list[types.Tool]:
     tools = []
     # SlncTrZ provider contract FIRST (help, system_status, system_capabilities)
     tools.extend(get_provider_tools())
+    tools.extend(get_lifecycle_tools())
     tools.extend(get_document_tools())
     tools.extend(get_object_query_tools())
     tools.extend(get_organization_tools())

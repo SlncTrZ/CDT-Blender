@@ -181,10 +181,15 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             )
         ]
 
+    # Extract semantic op_id if provided by caller; rid is correlation id
+    op_id = clean_args.pop("op_id", None)
+    if op_id is not None:
+        op_id = str(op_id)
+
     if name in _PATH_GUARDED_TOOLS:
         clean_args["_allow_roots"] = _allow_roots()
 
-    logger.info(f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args}")
+    logger.info(f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args} (op_id={op_id})")
 
     local_result = _answer_locally(name, clean_args)
     if local_result is not None:
@@ -195,7 +200,11 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     if recorder:
         recorder.record_command(name, clean_args)
 
-    blender_res = blender.send_command(name, clean_args, rid)
+    try:
+        blender_res = blender.send_command(name, clean_args, rid, op_id=op_id)
+    except TypeError:
+        # Compatibility fallback if mock/caller signature doesn't take op_id
+        blender_res = blender.send_command(name, clean_args, rid)
     log_status, log_msg, blender_res = _normalize_result(name, blender_res)
 
     logger.info(f"[{transport}] [{rid}] [{log_status}] {log_msg}")
@@ -229,7 +238,7 @@ def _normalize_result(name: str, blender_res):
         if (
             "message" not in blender_res
             and "status" in blender_res
-            and (blender_res["status"] == "success" or blender_res.get("success") is True)
+            and (blender_res["status"] == "success" or bool(blender_res.get("success")))
         ):
             blender_res["message"] = f"{name} completed successfully."
 

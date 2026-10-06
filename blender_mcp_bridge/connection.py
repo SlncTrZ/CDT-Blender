@@ -52,7 +52,12 @@ class BlenderConnection:
         return bytes(data)
 
     def send_command(
-        self, command_type, params=None, rid="unknown", timeout_seconds: float = BLENDER_TRANSPORT_TIMEOUT_SECONDS
+        self,
+        command_type,
+        params=None,
+        rid="unknown",
+        timeout_seconds: float = BLENDER_TRANSPORT_TIMEOUT_SECONDS,
+        op_id: str | None = None,
     ):
         """Send a command to Blender under one bounded connect/receive deadline."""
         if timeout_seconds <= 0:
@@ -60,7 +65,12 @@ class BlenderConnection:
 
         clean_params = params if params else {}
         deadline = time.monotonic() + timeout_seconds
-        payload = {"type": command_type, "params": clean_params, "request_id": rid}
+        payload = {
+            "type": command_type,
+            "params": clean_params,
+            "request_id": rid,
+            "op_id": op_id or rid,
+        }
         request_data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         if len(request_data) > MAX_REQUEST_BYTES:
             return _connection_error(
@@ -68,6 +78,7 @@ class BlenderConnection:
                 "Request exceeds transport byte budget.",
             )
 
+        sock = None
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             remaining = deadline - time.monotonic()
@@ -108,7 +119,7 @@ class BlenderConnection:
                 retryable=True,
             )
         finally:
-            if "sock" in locals():
+            if sock is not None:
                 try:
                     sock.close()
                 except Exception:

@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
 import threading
 import time
 import types
-import pytest
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = ROOT / "blender_mcp_addon" / "server.py"
@@ -87,12 +86,12 @@ def _load_server_module(monkeypatch):
         monkeypatch.setitem(sys.modules, module.__name__, module)
 
     modeling = types.ModuleType("blender_mcp_addon.tools.modeling")
-    setattr(modeling, "ModelingTools", type("ModelingTools", (), {}))
+    modeling.ModelingTools = type("ModelingTools", (), {})
     monkeypatch.setitem(sys.modules, modeling.__name__, modeling)
 
     utils = types.ModuleType("blender_mcp_addon.utils")
-    setattr(utils, "DEFAULT_HOST", "127.0.0.1")
-    setattr(utils, "DEFAULT_PORT", 8888)
+    utils.DEFAULT_HOST = "127.0.0.1"
+    utils.DEFAULT_PORT = 8888
     monkeypatch.setitem(sys.modules, utils.__name__, utils)
 
     spec = importlib.util.spec_from_file_location("blender_mcp_addon.server", SERVER_PATH)
@@ -103,22 +102,31 @@ def _load_server_module(monkeypatch):
     return module
 
 
-def test_lifecycle_manager_idempotency():
+def test_lifecycle_manager_idempotency_and_fingerprint():
     mgr = MutationLifecycleManager()
     op_id = "op-uuid-1"
 
-    rejection = mgr.check_admission("create_cube", op_id)
-    assert rejection is None
+    admitted, rej = mgr.reserve_and_admit("create_cube", op_id, {"size": 1.0}, time.monotonic() + 10)
+    assert admitted is True
+    assert rej is None
 
-    mgr.record_pending(op_id, "create_cube", {}, time.monotonic() + 10)
     mgr.record_in_flight(op_id)
     mgr.record_committed(op_id, {"status": "success", "name": "Cube"})
 
-    rejection2 = mgr.check_admission("create_cube", op_id)
-    assert rejection2 is not None
-    assert rejection2["status"] == "success"
-    assert rejection2["cached"] is True
-    assert rejection2["op_id"] == op_id
+    # Re-submission with same op_id and SAME payload: cached return
+    admitted2, rej2 = mgr.reserve_and_admit("create_cube", op_id, {"size": 1.0}, time.monotonic() + 10)
+    assert admitted2 is False
+    assert rej2 is not None
+    assert rej2["status"] == "success"
+    assert rej2["cached"] is True
+    assert rej2["op_id"] == op_id
+
+    # F11: Re-submission with same op_id but DIFFERENT payload: conflict error
+    admitted3, rej3 = mgr.reserve_and_admit("create_cube", op_id, {"size": 2.0}, time.monotonic() + 10)
+    assert admitted3 is False
+    assert rej3 is not None
+    assert rej3["status"] == "error"
+    assert rej3["kind"] == "payload_conflict"
 
 
 def test_lifecycle_uncertain_predecessor_gating():
@@ -129,20 +137,31 @@ def test_lifecycle_uncertain_predecessor_gating():
     mgr.record_uncertain(op1, "Timeout while baking", cmd_type="create_cube")
     assert mgr.has_uncertain() is True
 
-    rej = mgr.check_admission("object_move", op2)
+    # Dependent write must fail closed
+    admitted, rej = mgr.reserve_and_admit("object_move", op2, {}, time.monotonic() + 10)
+    assert admitted is False
     assert rej is not None
     assert rej["status"] == "error"
     assert rej["kind"] == "uncertain_predecessor_blocked"
     assert op1 in rej["uncertain_operations"]
 
-    rej_query = mgr.check_admission("object_list", "op-query")
-    assert rej_query is None
+    # Read-only query is allowed
+    admitted_q, rej_query = mgr.reserve_and_admit("object_list", "op-query", {}, time.monotonic() + 10)
+    assert admitted_q is True
 
-    rec = mgr.reconcile(op1, action="acknowledge")
+    # F04: Reconcile with unverified report does NOT unlock
+    rec_unverified = mgr.reconcile(op1, action="resolve", native_verifier=lambda r: {"verified": False})
+    assert rec_unverified["status"] == "success"
+    assert mgr.has_uncertain() is True
+
+    # Reconcile with verified report unlocks
+    rec = mgr.reconcile(op1, action="resolve", native_verifier=lambda r: {"verified": True})
     assert rec["status"] == "success"
     assert mgr.has_uncertain() is False
 
-    rej2 = mgr.check_admission("object_move", op2)
+    # Dependent write can now proceed
+    admitted2, rej2 = mgr.reserve_and_admit("object_move", op2, {}, time.monotonic() + 10)
+    assert admitted2 is True
     assert rej2 is None
 
 
@@ -181,6 +200,91 @@ def test_server_op_id_idempotency_avoids_duplicate_side_effect(monkeypatch):
     assert res2["status"] == "success"
     assert res2["cached"] is True
     assert call_count == 1
+
+
+def test_server_concurrent_pending_duplicate_rejected(monkeypatch):
+    """F02: Concurrent submissions with same op_id do not execute twice."""
+    module = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    server.running = True
+    server.addon_log = lambda m: None
+
+    effects = []
+    server.execute_command = lambda cmd: (
+        effects.append(cmd["op_id"]) or {"status": "success", "result": {"name": "ProbeCube"}}
+    )
+    results = []
+
+    def submit():
+        results.append(
+            server.handle_command({
+                "type": "create_cube",
+                "op_id": "same-concurrent-id",
+                "timeout": 2.0,
+                "params": {},
+            })
+        )
+
+    t1 = threading.Thread(target=submit)
+    t2 = threading.Thread(target=submit)
+    t1.start()
+    t2.start()
+
+    time.sleep(0.05)
+    # One must have been rejected as duplicate_pending before queue execution
+    assert server.command_queue.qsize() == 1
+    server._process_queue()
+    t1.join(timeout=3.0)
+    t2.join(timeout=3.0)
+
+    assert len(effects) == 1  # Only executed ONCE!
+    statuses = {r.get("status") for r in results}
+    assert "success" in statuses
+    assert any(r.get("kind") == "duplicate_pending" for r in results)
+
+
+def test_server_queued_dependent_blocked_when_predecessor_becomes_uncertain(monkeypatch):
+    """F03: A mutation already in queue is blocked at dispatch if predecessor became uncertain."""
+    module = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    server.running = True
+    server.addon_log = lambda m: None
+
+    dispatched = []
+    server.execute_command = lambda cmd: dispatched.append(cmd["type"]) or {"status": "success"}
+
+    # Admit A
+    server.lifecycle.reserve_and_admit("create_cube", "op-A", {}, time.monotonic() + 10)
+    server.command_queue.put_nowait({
+        "command": {"type": "create_cube", "op_id": "op-A"},
+        "event": threading.Event(),
+        "container": {"result": None},
+        "op_id": "op-A",
+        "deadline": time.monotonic() + 10,
+        "cmd_type": "create_cube",
+    })
+
+    # Admit B while A is still pending
+    server.lifecycle.reserve_and_admit("object_move", "op-B", {}, time.monotonic() + 10)
+    ev_B = threading.Event()
+    cont_B = {"result": None}
+    server.command_queue.put_nowait({
+        "command": {"type": "object_move", "op_id": "op-B"},
+        "event": ev_B,
+        "container": cont_B,
+        "op_id": "op-B",
+        "deadline": time.monotonic() + 10,
+        "cmd_type": "object_move",
+    })
+
+    # A executes and becomes uncertain
+    server.lifecycle.record_uncertain("op-A", "timeout during dispatch", "create_cube")
+
+    # Queue runs: A is gone, B is evaluated
+    server._process_queue()
+
+    assert "object_move" not in dispatched
+    assert cont_B["result"]["kind"] == "uncertain_predecessor_blocked"
 
 
 def test_server_expired_pending_command_never_starts(monkeypatch):
@@ -267,6 +371,6 @@ def test_server_started_timeout_becomes_uncertain(monkeypatch):
     assert dep_res["status"] == "error"
     assert dep_res["kind"] == "uncertain_predecessor_blocked"
 
-    rec_res = server.reconcile_operation(op_id, action="acknowledge")
+    rec_res = server.reconcile_operation(op_id, action="clear")
     assert rec_res["status"] == "success"
     assert op_id not in server.lifecycle.get_uncertain_ops()
