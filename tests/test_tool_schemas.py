@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from blender_mcp_bridge.tools import get_mcp_tools  # noqa: E402
+from blender_mcp_bridge.tools import get_mcp_tools, is_mutation_tool  # noqa: E402
 
 TOOLS = get_mcp_tools()
 
@@ -183,3 +183,49 @@ def test_required_props_have_no_default(tool):
             f"{tool.name}.{name} is required but also declares a default "
             f"({schema['default']!r}) — it can only be one of the two."
         )
+
+
+# --- H07: op_id identity on mutation tools ---
+
+# Lifecycle recovery tools legitimately carry op_id as a *required* argument
+# even though they are not mutations themselves.
+LIFECYCLE_IDENTITY_TOOLS = frozenset({"reconcile_operation", "operation_status"})
+
+_MUTATION_TOOLS = [t for t in TOOLS if is_mutation_tool(t.name)]
+_NON_MUTATION_TOOLS = [
+    t for t in TOOLS if not is_mutation_tool(t.name) and t.name not in LIFECYCLE_IDENTITY_TOOLS
+]
+
+
+@pytest.mark.parametrize("tool", _MUTATION_TOOLS, ids=[t.name for t in _MUTATION_TOOLS])
+def test_mutation_tools_expose_op_id(tool):
+    """Every state-changing tool must advertise its idempotency key."""
+    props = tool.inputSchema.get("properties", {})
+    assert "op_id" in props, f"{tool.name} is a mutation tool but has no op_id property"
+
+
+@pytest.mark.parametrize("tool", _MUTATION_TOOLS, ids=[t.name for t in _MUTATION_TOOLS])
+def test_mutation_op_id_schema_is_bounded_string(tool):
+    """op_id must be a bounded string so clients can validate before sending."""
+    op_id = tool.inputSchema["properties"]["op_id"]
+    assert op_id.get("type") == "string"
+    assert op_id.get("maxLength") == 128
+    assert "default" not in op_id  # optional: the addon auto-generates one
+    assert "op_id" not in (tool.inputSchema.get("required") or [])
+
+
+@pytest.mark.parametrize(
+    "tool", _NON_MUTATION_TOOLS, ids=[t.name for t in _NON_MUTATION_TOOLS]
+)
+def test_non_mutation_tools_have_no_op_id(tool):
+    """Read-only/local tools have nothing to reconcile, so no op_id key."""
+    props = tool.inputSchema.get("properties", {})
+    assert "op_id" not in props, (
+        f"{tool.name} is read-only but declares an op_id mutation key"
+    )
+
+
+def test_mutation_and_non_mutation_partition_is_non_empty():
+    """Guard the partition itself so the parametrised tests cannot pass on nothing."""
+    assert len(_MUTATION_TOOLS) > 50
+    assert len(_NON_MUTATION_TOOLS) > 5

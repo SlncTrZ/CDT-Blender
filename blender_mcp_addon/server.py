@@ -36,6 +36,7 @@ SOCKET_CHUNK_BYTES = 4096
 
 ADMISSION_QUEUE_MAXSIZE = 16
 MAX_COMMANDS_PER_TICK = 4
+MAX_ACTIVE_CLIENT_THREADS = 16
 
 COMMAND_WAIT_TIMEOUT_SECONDS = 60.0
 
@@ -75,6 +76,7 @@ class BlenderMCPServer(
         self.last_error = None
         self.timer_handle = None
         self.lifecycle = MutationLifecycleManager()
+        self._client_slots = threading.BoundedSemaphore(MAX_ACTIVE_CLIENT_THREADS)
 
     def start_server(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
         if self.running:
@@ -149,14 +151,47 @@ class BlenderMCPServer(
                 self.server_socket.settimeout(1.0)
                 try:
                     client, _ = self.server_socket.accept()
-                    threading.Thread(
-                        target=self._handle_client, args=(client,), daemon=True
-                    ).start()
                 except TimeoutError:
                     continue
+                # H12: bound concurrent client handler threads so unbounded
+                # socket connections cannot exhaust threads. Reject with a
+                # typed overload when the cap is reached.
+                if not self._client_slots.acquire(blocking=False):
+                    try:
+                        client.sendall(
+                            self._encode_response(
+                                _transport_error(
+                                    "rate_limited",
+                                    "Concurrent client connection limit reached; "
+                                    "rejecting new client.",
+                                    retryable=True,
+                                )
+                            )
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+                    continue
+                threading.Thread(
+                    target=self._handle_client_slot, args=(client,), daemon=True
+                ).start()
             except Exception as e:
                 if self.running:
                     print(f"[MCP] Server loop error: {e}")
+
+    def _handle_client_slot(self, client):
+        """Run a client handler while holding a concurrency slot.
+
+        The slot is acquired by _server_loop before the handler thread is
+        spawned and is always released here (H12: bounded client threads).
+        """
+        try:
+            self._handle_client(client)
+        finally:
+            self._client_slots.release()
 
     def _receive_request(self, client):
         deadline = time.monotonic() + REQUEST_RECEIVE_TIMEOUT_SECONDS

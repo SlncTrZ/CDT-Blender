@@ -290,30 +290,33 @@ class ModelingOperators:
             bpy.ops.object.mode_set(mode="OBJECT")
 
         bm = bmesh.new()
-        bm.from_mesh(obj.data)
-        bm.faces.ensure_lookup_table()
+        try:
+            bm.from_mesh(obj.data)
+            bm.faces.ensure_lookup_table()
 
-        target = mathutils.Vector(target_normal).normalized()
-        threshold = math.radians(angle_threshold_deg)
+            target = mathutils.Vector(target_normal).normalized()
+            threshold = math.radians(angle_threshold_deg)
 
-        # Get object world matrix to convert local normals to world normals
-        matrix_world = obj.matrix_world.to_3x3().inverted().transposed()
+            # Get object world matrix to convert local normals to world normals
+            matrix_world = obj.matrix_world.to_3x3().inverted().transposed()
 
-        selected_count = 0
-        for face in bm.faces:
-            # Convert local normal to world normal
-            world_normal = (matrix_world @ face.normal).normalized()
-            angle = world_normal.angle(target)
+            selected_count = 0
+            for face in bm.faces:
+                # Convert local normal to world normal
+                world_normal = (matrix_world @ face.normal).normalized()
+                angle = world_normal.angle(target)
 
-            if angle <= threshold:
-                face.select = True
-                selected_count += 1
-            else:
-                face.select = False
+                if angle <= threshold:
+                    face.select = True
+                    selected_count += 1
+                else:
+                    face.select = False
 
-        # Write selection back to mesh
-        bm.to_mesh(obj.data)
-        bm.free()
+            # Write selection back to mesh
+            bm.to_mesh(obj.data)
+        finally:
+            # H08: BMesh must be released even when selection/measurement raises.
+            bm.free()
 
         # Update mesh to ensure selection is visible
         obj.data.update()
@@ -331,34 +334,114 @@ class ModelingOperators:
         **kwargs,
     ):
         obj = get_object(object_name)
-        bpy.context.view_layer.objects.active = obj
+        if obj.type != "MESH":
+            return {
+                "success": False,
+                "error": f"Object '{object_name}' is not a mesh (type: {obj.type}).",
+            }
 
-        if filter_normal:
-            # Select faces by normal in Object mode
-            self._select_faces_by_normal(obj, filter_normal, angle_threshold)
-        elif not use_selection:
-            # Select all faces
-            if bpy.context.mode != "OBJECT":
-                bpy.ops.object.mode_set(mode="OBJECT")
-            # Select all faces in mesh data
-            for poly in obj.data.polygons:
-                poly.select = True
-            obj.data.update()
+        # H08: validate object/selection/finite params BEFORE mutating any context.
+        if mode not in ("VERTS", "EDGES", "FACES"):
+            return {
+                "success": False,
+                "error": f"Invalid mode '{mode}'. Expected VERTS, EDGES, or FACES.",
+            }
+        try:
+            move = tuple(float(v) for v in move)
+            if len(move) != 3:
+                return {
+                    "success": False,
+                    "error": f"move must be a 3-tuple, got {len(move)} values.",
+                }
+        except (TypeError, ValueError):
+            return {"success": False, "error": f"move must contain finite numbers, got {move!r}."}
+        if not all(math.isfinite(v) for v in move):
+            return {"success": False, "error": f"move must contain finite numbers, got {move!r}."}
 
-        # Now enter Edit mode - selections will be preserved
-        bpy.ops.object.mode_set(mode="EDIT")
-        select_mode = (mode == "VERTS", mode == "EDGES", mode == "FACES")
-        bpy.context.tool_settings.mesh_select_mode = select_mode
+        # Save the context this tool owns so a failure never dirties mode/selection.
+        original_active = bpy.context.view_layer.objects.active
+        original_selected = [o for o in bpy.context.selected_objects]
 
-        bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value": move})
+        try:
+            bpy.context.view_layer.objects.active = obj
+            selected_count = None
+            if filter_normal:
+                # Select faces by normal in Object mode
+                selected_count = self._select_faces_by_normal(obj, filter_normal, angle_threshold)
+            elif not use_selection:
+                # Select all faces in mesh data
+                if bpy.context.mode != "OBJECT":
+                    bpy.ops.object.mode_set(mode="OBJECT")
+                for poly in obj.data.polygons:
+                    poly.select = True
+                obj.data.update()
+                selected_count = len(obj.data.polygons)
 
-        # Return to Object mode
-        bpy.ops.object.mode_set(mode="OBJECT")
-        return {
-            "success": True,
-            "verified": True,
-            "message": f"Extruded {mode.lower()} of '{object_name}' by {move}. Geometry verified. Proceed immediately to next modeling step.",
-        }
+            if selected_count == 0:
+                return {
+                    "success": False,
+                    "error": f"No faces selected on '{object_name}' to extrude.",
+                }
+
+            verts_before = len(obj.data.vertices)
+            faces_before = len(obj.data.polygons)
+
+            # Now enter Edit mode - selections will be preserved
+            bpy.ops.object.mode_set(mode="EDIT")
+            select_mode = (mode == "VERTS", mode == "EDGES", mode == "FACES")
+            bpy.context.tool_settings.mesh_select_mode = select_mode
+
+            result = bpy.ops.mesh.extrude_region_move(TRANSFORM_OT_translate={"value": move})
+            if "FINISHED" not in result:
+                return {
+                    "success": False,
+                    "error": f"Extrude operator did not finish: {set(result)}.",
+                }
+
+            # Return to Object mode so the measured geometry reflects the edit.
+            bpy.ops.object.mode_set(mode="OBJECT")
+            verts_after = len(obj.data.vertices)
+            faces_after = len(obj.data.polygons)
+
+            # No-op guard: a FINISHED result that changed nothing is not a success.
+            if verts_after == verts_before and faces_after == faces_before:
+                return {
+                    "success": False,
+                    "error": "Extrude reported success but produced no geometry change.",
+                }
+
+            return {
+                "success": True,
+                "verified": True,
+                "object": object_name,
+                "vertices_before": verts_before,
+                "vertices_after": verts_after,
+                "faces_before": faces_before,
+                "faces_after": faces_after,
+                "message": (
+                    f"Extruded {mode.lower()} of '{object_name}' by {move}: "
+                    f"{verts_before}->{verts_after} vertices, {faces_before}->{faces_after} faces."
+                ),
+            }
+        finally:
+            # H08: always restore OBJECT mode, selection and active object,
+            # even when the operator CANCELLED or raised.
+            try:
+                if bpy.context.mode != "OBJECT":
+                    bpy.ops.object.mode_set(mode="OBJECT")
+            except Exception:
+                pass
+            try:
+                bpy.ops.object.select_all(action="DESELECT")
+                for o in original_selected:
+                    try:
+                        o.select_set(True)
+                    except Exception:
+                        pass
+                if original_active is not None:
+                    bpy.context.view_layer.objects.active = original_active
+            except Exception:
+                pass
 
     def inset_faces(
         self,
@@ -371,30 +454,108 @@ class ModelingOperators:
         **kwargs,
     ):
         obj = get_object(object_name)
-        bpy.context.view_layer.objects.active = obj
+        if obj.type != "MESH":
+            return {
+                "success": False,
+                "error": f"Object '{object_name}' is not a mesh (type: {obj.type}).",
+            }
 
-        if filter_normal:
-            # Select faces by normal in Object mode
-            self._select_faces_by_normal(obj, filter_normal, angle_threshold)
-        elif not use_selection:
-            # Select all faces
-            if bpy.context.mode != "OBJECT":
-                bpy.ops.object.mode_set(mode="OBJECT")
-            for poly in obj.data.polygons:
-                poly.select = True
-            obj.data.update()
+        # H08: validate finite params BEFORE mutating any context.
+        try:
+            thickness = float(thickness)
+            depth = float(depth)
+        except (TypeError, ValueError):
+            return {
+                "success": False,
+                "error": f"thickness/depth must be finite numbers, got {thickness!r}/{depth!r}.",
+            }
+        if not (math.isfinite(thickness) and math.isfinite(depth)):
+            return {
+                "success": False,
+                "error": f"thickness/depth must be finite numbers, got {thickness!r}/{depth!r}.",
+            }
 
-        # Enter Edit mode - selections will be preserved
-        bpy.ops.object.mode_set(mode="EDIT")
-        bpy.ops.mesh.inset(thickness=thickness, depth=depth)
+        # Save the context this tool owns so a failure never dirties mode/selection.
+        original_active = bpy.context.view_layer.objects.active
+        original_selected = [o for o in bpy.context.selected_objects]
 
-        # Return to Object mode
-        bpy.ops.object.mode_set(mode="OBJECT")
-        return {
-            "success": True,
-            "verified": True,
-            "message": f"Inset faces of '{object_name}' by {thickness}. Geometry verified. Proceed immediately to next modeling step.",
-        }
+        try:
+            bpy.context.view_layer.objects.active = obj
+            selected_count = None
+            if filter_normal:
+                # Select faces by normal in Object mode
+                selected_count = self._select_faces_by_normal(obj, filter_normal, angle_threshold)
+            elif not use_selection:
+                # Select all faces
+                if bpy.context.mode != "OBJECT":
+                    bpy.ops.object.mode_set(mode="OBJECT")
+                for poly in obj.data.polygons:
+                    poly.select = True
+                obj.data.update()
+                selected_count = len(obj.data.polygons)
+
+            if selected_count == 0:
+                return {
+                    "success": False,
+                    "error": f"No faces selected on '{object_name}' to inset.",
+                }
+
+            verts_before = len(obj.data.vertices)
+            faces_before = len(obj.data.polygons)
+
+            # Enter Edit mode - selections will be preserved
+            bpy.ops.object.mode_set(mode="EDIT")
+            result = bpy.ops.mesh.inset(thickness=thickness, depth=depth)
+            if "FINISHED" not in result:
+                return {
+                    "success": False,
+                    "error": f"Inset operator did not finish: {set(result)}.",
+                }
+
+            # Return to Object mode so the measured geometry reflects the edit.
+            bpy.ops.object.mode_set(mode="OBJECT")
+            verts_after = len(obj.data.vertices)
+            faces_after = len(obj.data.polygons)
+
+            # No-op guard: a FINISHED result that changed nothing is not a success.
+            if verts_after == verts_before and faces_after == faces_before:
+                return {
+                    "success": False,
+                    "error": "Inset reported success but produced no geometry change.",
+                }
+
+            return {
+                "success": True,
+                "verified": True,
+                "object": object_name,
+                "vertices_before": verts_before,
+                "vertices_after": verts_after,
+                "faces_before": faces_before,
+                "faces_after": faces_after,
+                "message": (
+                    f"Inset faces of '{object_name}' by thickness={thickness}, depth={depth}: "
+                    f"{verts_before}->{verts_after} vertices, {faces_before}->{faces_after} faces."
+                ),
+            }
+        finally:
+            # H08: always restore OBJECT mode, selection and active object,
+            # even when the operator CANCELLED or raised.
+            try:
+                if bpy.context.mode != "OBJECT":
+                    bpy.ops.object.mode_set(mode="OBJECT")
+            except Exception:
+                pass
+            try:
+                bpy.ops.object.select_all(action="DESELECT")
+                for o in original_selected:
+                    try:
+                        o.select_set(True)
+                    except Exception:
+                        pass
+                if original_active is not None:
+                    bpy.context.view_layer.objects.active = original_active
+            except Exception:
+                pass
 
     def shear_mesh(
         self,

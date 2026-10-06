@@ -21,7 +21,7 @@ from .auth import auth_failure_status, verify_token
 from .config import settings
 from .connection import blender, logger
 from .sessions import SessionRecorder
-from .tools import get_mcp_tools
+from .tools import get_mcp_tools, is_mutation_tool
 from .tools.design_rules import DESIGN_RULE_HANDLERS
 from .tools.provider import PROVIDER_HANDLERS
 
@@ -215,6 +215,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
 
     blender_res = await asyncio.to_thread(_send)
     log_status, log_msg, blender_res = _normalize_result(name, blender_res)
+    blender_res = _attach_mutation_identity(name, blender_res, op_id, rid)
 
     logger.info(f"[{transport}] [{rid}] [{log_status}] {log_msg}")
 
@@ -279,6 +280,22 @@ def _normalize_result(name: str, blender_res):
         log_msg = str(blender_res)
 
     return log_status, log_msg, blender_res
+
+
+def _attach_mutation_identity(name: str, blender_res, op_id, rid):
+    """Attach the effective op_id to a mutation outcome if the addon omitted it.
+
+    Cached, conflict, and typed-error receipts already echo op_id from the addon;
+    the first-execution success/error path does not. Every mutation outcome must
+    carry the identity it ran under so the caller can reconcile after a timeout.
+    """
+    if (
+        is_mutation_tool(name)
+        and isinstance(blender_res, dict)
+        and "op_id" not in blender_res
+    ):
+        blender_res["op_id"] = op_id or rid
+    return blender_res
 
 
 # MCP Application Logic (Streamable Transport)

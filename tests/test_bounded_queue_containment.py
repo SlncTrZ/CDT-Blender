@@ -83,6 +83,7 @@ server_mod = _get_server()
 BlenderMCPServer = server_mod.BlenderMCPServer
 ADMISSION_QUEUE_MAXSIZE = server_mod.ADMISSION_QUEUE_MAXSIZE
 MAX_COMMANDS_PER_TICK = server_mod.MAX_COMMANDS_PER_TICK
+MAX_ACTIVE_CLIENT_THREADS = server_mod.MAX_ACTIVE_CLIENT_THREADS
 
 from blender_mcp_addon.utils import (
     OutsideAllowRoots,
@@ -119,6 +120,46 @@ def test_admission_queue_saturation_rejection():
     assert res["kind"] == "rate_limited"
     assert res["retryable"] is True
     assert "Admission queue full" in res["message"]
+
+
+def test_client_handler_thread_cap_saturates_and_recovers():
+    """H12: concurrent client handler threads are bounded by a semaphore.
+
+    Once MAX_ACTIVE_CLIENT_THREADS slots are held, the next acquire fails
+    (server must reject the client), and releasing a slot restores capacity.
+    """
+    server = BlenderMCPServer()
+    assert MAX_ACTIVE_CLIENT_THREADS == 16
+
+    for _ in range(MAX_ACTIVE_CLIENT_THREADS):
+        assert server._client_slots.acquire(blocking=False) is True
+
+    # Saturated: no slot for the next accepted client.
+    assert server._client_slots.acquire(blocking=False) is False
+
+    server._client_slots.release()
+    assert server._client_slots.acquire(blocking=False) is True
+
+
+def test_client_handler_slot_released_on_exception(monkeypatch):
+    """H12: the concurrency slot is released in finally even on handler failure."""
+    server = BlenderMCPServer()
+    assert server._client_slots.acquire(blocking=False) is True
+
+    def _boom(client):
+        raise RuntimeError("handler exploded")
+
+    monkeypatch.setattr(server, "_handle_client", _boom)
+
+    class _FakeClient:
+        pass
+
+    with pytest.raises(RuntimeError):
+        server._handle_client_slot(_FakeClient())
+
+    # Slot was returned; capacity is fully restored.
+    for _ in range(MAX_ACTIVE_CLIENT_THREADS):
+        assert server._client_slots.acquire(blocking=False) is True
 
 
 def test_commands_per_tick_budget(monkeypatch):

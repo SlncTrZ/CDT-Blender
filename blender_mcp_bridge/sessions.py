@@ -208,13 +208,11 @@ class SessionPlayer:
         if self._client:
             return self._client
 
-        if self.transport == "stateful":
-            from tests.utils.stateful_mcp_client import StatefulMCPClient
+        from .client import MCPClient, StatefulMCPClient
 
+        if self.transport == "stateful":
             self._client = StatefulMCPClient(base_url=self.host)
         else:
-            from tests.utils.mcp_client import MCPClient
-
             self._client = MCPClient(base_url=self.host)
         return self._client
 

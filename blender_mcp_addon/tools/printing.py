@@ -1,12 +1,75 @@
 # blender_mcp_addon/tools/printing.py
 
+import hashlib
 import os
+import struct
+import tempfile
 
 import addon_utils  # type: ignore
 import bmesh  # type: ignore
 import bpy  # type: ignore
 
 from ..utils import OutsideAllowRoots, get_object, require_allowed
+
+
+def _sha256_of(path):
+    """SHA-256 digest of a file, streamed to bound memory on large exports."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _verify_export_artifact(path, format_upper):
+    """Verify a freshly exported file is real, non-empty and parseable.
+
+    Returns a dict with ``valid=True`` plus size/hash/format evidence on
+    success, or ``valid=False`` plus an ``error`` string. Never treats a
+    stale or empty file as a successful export.
+    """
+    if not os.path.isfile(path):
+        return {"valid": False, "error": f"exported file does not exist: {path}"}
+    size = os.path.getsize(path)
+    if size <= 0:
+        return {"valid": False, "error": f"exported file is empty: {path}"}
+
+    info = {"size": size, "sha256": _sha256_of(path)}
+
+    if format_upper == "STL":
+        # Binary STL: 80-byte header + uint32 triangle count + 50 * count bytes.
+        binary = False
+        if size >= 84:
+            with open(path, "rb") as handle:
+                handle.read(80)
+                count_raw = handle.read(4)
+            if len(count_raw) == 4:
+                tri_count = struct.unpack("<I", count_raw)[0]
+                if tri_count > 0 and size == 84 + 50 * tri_count:
+                    binary = True
+                    info["format"] = "stl_binary"
+                    info["triangle_count"] = tri_count
+        if not binary:
+            with open(path, "r", errors="ignore") as handle:
+                head = handle.read(4096).lstrip()
+            lower = head.lower()
+            # A real ASCII STL starts with 'solid' and contains at least one
+            # 'facet'; a zero-triangle export must not count as a valid artifact.
+            if not lower.startswith("solid") or "facet" not in lower:
+                return {"valid": False, "error": f"file is not a valid STL (size={size})"}
+            info["format"] = "stl_ascii"
+    elif format_upper == "3MF":
+        # 3MF is a ZIP container.
+        with open(path, "rb") as handle:
+            magic = handle.read(4)
+        if not magic.startswith(b"PK"):
+            return {"valid": False, "error": "file is not a valid 3MF (not a ZIP container)"}
+        info["format"] = "3mf"
+    else:
+        return {"valid": False, "error": f"unsupported format for verification: {format_upper}"}
+
+    info["valid"] = True
+    return info
 
 
 class PrintingTools:
@@ -178,9 +241,14 @@ class PrintingTools:
         self, object_name=None, filepath=None, format="STL", selection_only=True, _allow_roots=None
     ):
         """Export object(s) to STL or 3MF format. Relative paths are resolved against BLENDER_ASSETS_DIR."""
+        # H09: validate format BEFORE mkdir/context so bad input cannot dirty state.
+        format_upper = (format or "").upper()
+        if format_upper not in ("STL", "3MF"):
+            return {"success": False, "error": f"Unsupported export format: {format}"}
+
         if not filepath:
             name_to_use = object_name if object_name else "scene_export"
-            ext = ".stl" if format.upper() == "STL" else ".3mf"
+            ext = ".stl" if format_upper == "STL" else ".3mf"
             filepath = f"{name_to_use}{ext}"
 
         # Resolve relative path using BLENDER_ASSETS_DIR
@@ -192,13 +260,20 @@ class PrintingTools:
                 filepath = os.path.abspath(filepath)
 
         try:
-            require_allowed(filepath, _allow_roots)
+            filepath = require_allowed(filepath, _allow_roots)
         except OutsideAllowRoots as exc:
             return {"success": False, "error": str(exc)}
 
+        # H09: validate object BEFORE mkdir/context so a missing target fails clean.
+        obj = None
+        if object_name:
+            obj = bpy.data.objects.get(object_name)
+            if obj is None:
+                return {"success": False, "error": f"Object '{object_name}' not found."}
+
         # Ensure directory path exists
-        dirpath = os.path.dirname(filepath)
-        if dirpath and not os.path.exists(dirpath):
+        dirpath = os.path.dirname(filepath) or os.getcwd()
+        if not os.path.isdir(dirpath):
             os.makedirs(dirpath, exist_ok=True)
 
         # Always ensure we are in Object Mode — previous sculpt/edit ops can
@@ -214,28 +289,36 @@ class PrintingTools:
 
         # Set selection context if object_name is specified
         if object_name:
-            obj = get_object(object_name)
-            # Clear current selection
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(True)
             bpy.context.view_layer.objects.active = obj
 
-        format_upper = format.upper()
+        # H09: export to a fresh temporary sibling first, then verify and move
+        # into place. A CANCELLED export can never leave a stale file that
+        # masquerades as the new artifact.
+        suffix = os.path.splitext(filepath)[1] or (".stl" if format_upper == "STL" else ".3mf")
+        fd, tmp_path = tempfile.mkstemp(prefix=".mcp_export_", suffix=suffix, dir=dirpath)
+        os.close(fd)
 
+        verification = None
         try:
             if format_upper == "STL":
                 # Check for Blender 4.x new stl export vs legacy
                 if hasattr(bpy.ops.wm, "stl_export"):
-                    bpy.ops.wm.stl_export(filepath=filepath, export_selected_objects=selection_only)
+                    result = bpy.ops.wm.stl_export(
+                        filepath=tmp_path, export_selected_objects=selection_only
+                    )
                 else:
-                    bpy.ops.export_mesh.stl(filepath=filepath, use_selection=selection_only)
-            elif format_upper == "3MF":
+                    result = bpy.ops.export_mesh.stl(
+                        filepath=tmp_path, use_selection=selection_only
+                    )
+            else:  # 3MF
                 # 3MF export - preserves materials and colors for multi-color printing
                 # Requires the io_scene_3mf addon: https://extensions.blender.org/add-ons/threemf-io/
                 try:
                     # Standard operator from io_scene_3mf addon with multi-object support
-                    bpy.ops.export_scene.threemf(
-                        filepath=filepath,
+                    result = bpy.ops.export_scene.threemf(
+                        filepath=tmp_path,
                         use_selection=selection_only,
                         export_materials=True,
                         use_mesh_modifiers=True,
@@ -243,18 +326,41 @@ class PrintingTools:
                 except Exception as op_error:
                     # Try alternative operator name
                     try:
-                        bpy.ops.export_mesh.threemf(
-                            filepath=filepath, use_selection=selection_only, export_materials=True
+                        result = bpy.ops.export_mesh.threemf(
+                            filepath=tmp_path, use_selection=selection_only, export_materials=True
                         )
                     except Exception as e:
                         raise AttributeError(
                             f"3MF export operator not found. Install the threemf_io addon from https://extensions.blender.org/add-ons/threemf-io/ (Error: {op_error})"
                         ) from e
-            else:
-                raise ValueError(f"Unsupported export format: {format}")
+
+            # H09: check the operator outcome instead of assuming an uncaught
+            # exception is the only failure mode.
+            if "FINISHED" not in result:
+                return {
+                    "success": False,
+                    "error": f"Export operator did not finish: {set(result)}.",
+                }
+
+            # H09: verify existence/size/format/hash BEFORE claiming success.
+            verification = _verify_export_artifact(tmp_path, format_upper)
+            if not verification.get("valid"):
+                return {
+                    "success": False,
+                    "error": verification.get("error", "Export verification failed."),
+                }
+
+            # Fresh artifact verified — atomically move it over the final path.
+            os.replace(tmp_path, filepath)
         except Exception as e:
             return {"success": False, "error": f"Failed to export: {str(e)}"}
         finally:
+            # Clean up any temporary file a CANCELLED export left behind.
+            if os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
             # Restore selection state
             if object_name:
                 bpy.ops.object.select_all(action="DESELECT")
@@ -267,9 +373,13 @@ class PrintingTools:
 
         return {
             "success": True,
+            "verified": True,
             "filepath": filepath,
             "format": format_upper,
-            "message": f"Successfully exported to '{filepath}'.",
+            "size_bytes": verification["size"],
+            "sha256": verification["sha256"],
+            "artifact_format": verification.get("format"),
+            "message": f"Successfully exported to '{filepath}' ({verification['size']} bytes).",
         }
 
     def import_model(self, filepath, _allow_roots=None):
