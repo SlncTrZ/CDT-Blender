@@ -415,7 +415,9 @@ class SessionPlayer:
                     print(f"  {bold}{red}x ERROR:{reset} {e}")
                     fail_count += 1
                     # H04: Stop dependent writes on error / timeout / uncertainty
-                    print(f"  {yellow}Playback aborted early due to failure on command {i + 1}.{reset}")
+                    print(
+                        f"  {yellow}Playback aborted early due to failure on command {i + 1}.{reset}"
+                    )
                     break
 
                 print("-" * 60)

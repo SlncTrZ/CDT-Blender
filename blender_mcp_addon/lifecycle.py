@@ -99,7 +99,11 @@ class MutationLifecycleManager:
         fingerprint = compute_payload_fingerprint(cmd_type, params)
         with self._lock:
             # 1. Check existing receipt or active reservation for exact same op_id
-            if op_id in self._pending_ops or op_id in self._in_flight or op_id in self._uncertain_ops:
+            if (
+                op_id in self._pending_ops
+                or op_id in self._in_flight
+                or op_id in self._uncertain_ops
+            ):
                 # Active operations cannot be admitted again
                 if op_id in self._pending_ops:
                     return False, {
@@ -266,7 +270,9 @@ class MutationLifecycleManager:
                 receipt = self._receipts.get(op_id, {"op_id": op_id})
                 receipt["state"] = ReceiptState.EXPIRED_PENDING
                 receipt["expired_at"] = now
-                receipt["reason"] = f"Expired while pending in queue before dispatch ({now:.3f} >= {deadline:.3f})"
+                receipt["reason"] = (
+                    f"Expired while pending in queue before dispatch ({now:.3f} >= {deadline:.3f})"
+                )
                 self._receipts[op_id] = receipt
                 return False, {
                     "status": "error",

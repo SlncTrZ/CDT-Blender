@@ -41,6 +41,7 @@ def test_session_lifecycle():
 def test_playback_stops_on_error_or_uncertain(monkeypatch):
     import asyncio
     import types
+
     from blender_mcp_bridge.sessions import SessionPlayer
 
     player = SessionPlayer()

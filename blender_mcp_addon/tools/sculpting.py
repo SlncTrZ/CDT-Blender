@@ -268,7 +268,12 @@ class SculptingTools:
 
         # H10: Set explicit signed symmetrize_direction on Blender 4.5 tool_settings.sculpt
         if hasattr(sculpt, "symmetrize_direction") and direction in (
-            "POSITIVE_X", "NEGATIVE_X", "POSITIVE_Y", "NEGATIVE_Y", "POSITIVE_Z", "NEGATIVE_Z"
+            "POSITIVE_X",
+            "NEGATIVE_X",
+            "POSITIVE_Y",
+            "NEGATIVE_Y",
+            "POSITIVE_Z",
+            "NEGATIVE_Z",
         ):
             sculpt.symmetrize_direction = direction
 

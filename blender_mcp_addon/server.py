@@ -382,7 +382,10 @@ class BlenderMCPServer(
                     obj_name = res["name"]
                     if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
                         return {"verified": True, "object_exists": True, "object_name": obj_name}
-                return {"verified": False, "note": "Target object for transform not found or conclusive data missing"}
+                return {
+                    "verified": False,
+                    "note": "Target object for transform not found or conclusive data missing",
+                }
 
             # F10: Verify document save/open target matches expected filepath
             if cmd in ("document_save", "document_save_as", "document_open"):
@@ -393,7 +396,11 @@ class BlenderMCPServer(
 
             if cmd == "document_new":
                 curr_fp = getattr(bpy.data, "filepath", "")
-                return {"verified": True, "filepath": curr_fp, "note": "document_new context verified"}
+                return {
+                    "verified": True,
+                    "filepath": curr_fp,
+                    "note": "document_new context verified",
+                }
 
             return {"verified": False, "note": f"No native verifier available for command {cmd}"}
 
