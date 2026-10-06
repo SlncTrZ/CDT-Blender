@@ -191,9 +191,11 @@ class SculptingTools:
         if bpy.context.mode != "OBJECT":
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        world_to_local = obj.matrix_world.inverted()
-        center = world_to_local @ Vector(location)
-        delta = world_to_local.to_3x3() @ Vector(offset)
+        world_matrix = obj.matrix_world
+        world_to_local = world_matrix.inverted()
+        target_world = Vector(location)
+        delta_world = Vector(offset)
+        delta_local = world_to_local.to_3x3() @ delta_world
 
         bm = bmesh.new()
         bm.from_mesh(obj.data)
@@ -201,13 +203,15 @@ class SculptingTools:
         affected = 0
         nearest_dist = None
         for vert in bm.verts:
-            dist = (vert.co - center).length
+            # F14: Compute distance in WORLD space so radius semantics are invariant to object scale
+            vert_world = world_matrix @ vert.co
+            dist = (vert_world - target_world).length
             if nearest_dist is None or dist < nearest_dist:
                 nearest_dist = dist
             if dist < radius:
-                # Smooth cosine-based falloff: 1 at center, 0 at edge
+                # Cosine-like smooth polynomial falloff: 1 at center, 0 at edge
                 falloff = max(0.0, 1.0 - (dist / radius) ** 2)
-                vert.co += delta * falloff
+                vert.co += delta_local * falloff
                 affected += 1
 
         bm.to_mesh(obj.data)
