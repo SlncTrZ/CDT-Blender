@@ -3,12 +3,24 @@
 This document describes the unit tests for the Blender MCP project, focusing on core
 logic that can be tested without a running Blender instance.
 
-There are two suites, both under `tests/`:
+There are thirteen offline suites, all under `tests/` and all run by CI
+(`.github/workflows/ci.yml` jobs `unit-tests` + `contract`):
 
-| File | Tests | What it guards |
-|---|---|---|
-| `tests/test_sessions.py` | 1 | Session record/save/reload round-trip |
-| `tests/test_tool_schemas.py` | 1600 | Schema hygiene across every bridge tool |
+| File | What it guards |
+|---|---|
+| `tests/test_tool_schemas.py` | Schema hygiene across every bridge tool (1556 cases at `f60cf30`) |
+| `tests/test_sessions.py` | Session record/save/reload round-trip |
+| `tests/test_design_rules.py` | Local advisory lookups (no Blender needed) |
+| `tests/test_auth.py` | Fail-closed bearer auth behavior |
+| `tests/test_provider_runtime.py` | Provider identity/version/contract constants |
+| `tests/test_addon_lifecycle.py` | Addon start/stop/timer lifecycle |
+| `tests/test_connection_deadline.py` | Bounded transport deadlines |
+| `tests/test_document_lifecycle.py` | Document semantics without Blender |
+| `tests/test_object_query.py` | Object query semantics without Blender |
+| `tests/test_organization.py` | Collection/organization mapping |
+| `tests/test_common_transform.py` | Move/rotate/scale conventions |
+| `tests/test_mutation_lifecycle.py` | Mutation receipts/uncertainty/reconcile |
+| `tests/test_bounded_queue_containment.py` | Admission queue (16) / tick budget (4) / path containment |
 
 ## Running the Tests
 
@@ -17,14 +29,14 @@ dependency group** in `pyproject.toml` (`[dependency-groups] dev` holds only `ru
 and `mypy`), so pass it in explicitly:
 
 ```bash
-# Everything
-uv run --with pytest python -m pytest tests/ -q
+# Everything (offline; matches the CI unit-tests job file list)
+uv run --with pytest python -m pytest tests/test_tool_schemas.py tests/test_sessions.py tests/test_design_rules.py tests/test_auth.py tests/test_provider_runtime.py tests/test_addon_lifecycle.py tests/test_connection_deadline.py tests/test_document_lifecycle.py tests/test_object_query.py tests/test_organization.py tests/test_common_transform.py tests/test_mutation_lifecycle.py tests/test_bounded_queue_containment.py -q
 
 # One suite
 uv run --with pytest python -m pytest tests/test_tool_schemas.py -q
 ```
 
-Expected result: `1601 passed`.
+Expected result at `f60cf30` (verified 2026-10-06, offline, no Blender): `1630 passed`.
 
 `tests/test_sessions.py` also keeps a `__main__` guard, so the legacy invocation
 still works and prints its own step-by-step trace:
@@ -34,9 +46,12 @@ python -m tests.test_sessions
 ```
 
 > [!NOTE]
-> These unit tests are **not run by CI**. [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
-> runs only ruff (lint + format), ruff C90 complexity, and mypy — there is no pytest
-> job. Run them locally before pushing.
+> These unit tests also run in CI: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+> jobs `unit-tests` (pytest over the 13 offline suites listed above),
+> `contract` (regenerates `docs/tools.md` via `scripts/gen_tools_doc.py` and
+> fails on drift or uncommitted diff), plus ruff lint/format, ruff C90
+> complexity, and mypy. Live-Blender scenarios stay a local lane.
+> Run the full set locally before pushing.
 
 ## Session Lifecycle Tests
 
@@ -80,16 +95,16 @@ The suite walks nested properties too (object sub-properties and array `items`),
 so a `holes[].radius` deep inside `create_watertight_plate` is checked like any
 top-level field.
 
-| Test | Cases | Rule enforced |
+| Test | Cases (at `f60cf30`) | Rule enforced |
 |---|---|---|
-| `test_defaults_are_machine_readable` | 497 | A default stated in the description must also exist as a JSON-Schema `default` key |
-| `test_declared_default_matches_its_type` | 497 | A `default` must match the property's declared `type` |
-| `test_enum_default_is_a_member` | 497 | A `default` on an enum field must be one of that enum's values |
-| `test_required_props_have_no_default` | 94 | A property cannot be both required and defaulted |
+| `test_defaults_are_machine_readable` | 477 | A default stated in the description must also exist as a JSON-Schema `default` key |
+| `test_declared_default_matches_its_type` | 477 | A `default` must match the property's declared `type` |
+| `test_enum_default_is_a_member` | 477 | A `default` on an enum field must be one of that enum's values |
+| `test_required_props_have_no_default` | 110 | A property cannot be both required and defaulted |
 | `test_prose_default_detector` | 14 | Guards the regex above against over/under-matching |
 | `test_tools_are_discovered` | 1 | Fails if the import breaks and the parametrised tests silently run on nothing |
 
-The per-property counts (497) and per-tool count (94) are derived at collection time,
+The per-property counts (477) and per-tool count (110) are derived at collection time,
 so they grow automatically as tools are added — no fixture to update.
 
 ### The prose-default detector

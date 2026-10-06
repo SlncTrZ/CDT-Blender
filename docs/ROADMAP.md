@@ -12,9 +12,9 @@ Build a Blender MCP provider in an independent parallel delivery lane whose comp
 
 Scene setup/rendering is important but is not sufficient to call the Blender provider complete.
 
-### Current verified checkpoint — 2026-10-06
+### Current verified checkpoint — B0 PASS (certified-at: 2026-09-14 evidence, Blender 4.5.3 LTS / Windows 11)
 
-B0 baseline/context, B1 reliability, B2 modeling, B3 sculpting, and certification are **PASS** on the verified native baseline **Blender 4.5.3 LTS / Windows 11**. Acceptance covers:
+B0 baseline/context is **PASS** on the verified native baseline **Blender 4.5.3 LTS / Windows 11**. B1 reliability is **PARTIAL** (bounded admission queue 16 / tick budget 4, pending expiry, uncertain-receipt and reconcile controls exist; client/heavy-op budgets and async hardening remain open). B2 modeling and B3 sculpting are **OPEN** mandatory gates: mesh primitives, bmesh edits, Sculpt mode lifecycle and dyntopo assists exist, but UV unwrap, brush strokes, masks, face sets and multiresolution are declared unsupported in `blender_mcp_bridge/provider_contract.py` and native acceptance is pending. B4 operations/certification is **PENDING**: the only native execution manifest (`_private/evidence/release_certification_4.5.3/manifest.json`) is historical source `39e2810` (2 rows), not a certification of the current HEAD. Acceptance covers:
 
 - bounded runtime-context discovery with offline fail-closed behavior;
 - `.blend` document new/open/info/save/save-as/close semantics with contained paths;
@@ -26,8 +26,8 @@ B0 baseline/context, B1 reliability, B2 modeling, B3 sculpting, and certificatio
 - authenticated Streamable HTTP MCP health/discovery/status/capabilities;
 - **Mutation lifecycle (R1 / BL-01, BL-02):** Stable `op_id`, cached receipts preventing duplicate side-effects, `expired_pending` non-dispatch, `timeout_uncertain` marking with dependent write lock, and `reconcile_operation` datablock verification;
 - **Bounded execution & containment (R2 / BL-03, BL-04):** Bounded admission queue (16 items max), UI timer dispatch fairness (4 items/tick), central fail-closed path containment resolving `realpath` (blocking Windows symlinks/junctions);
-- **Modeling & Sculpting (BL-05, BL-06):** Mesh primitives, bmesh extrude/edit, Sculpt mode lifecycle, and Blender 4.5.3 LTS dynamic topology (`use_dynamic_topology_sculpting`);
-- **Full test suite:** 1616 tests passing, native execution manifest recorded at `_private/evidence/release_certification_4.5.3/manifest.json`.
+- **Modeling & Sculpting (BL-05, BL-06 — OPEN):** Mesh primitives, bmesh extrude/edit, Sculpt mode lifecycle, and Blender 4.5.3 LTS dynamic topology (`use_dynamic_topology_sculpting`) assists exist; UV unwrap, brush strokes, masks, face sets and multiresolution remain declared unsupported pending native acceptance;
+- **Offline test suite (pending native certification):** 1630 tests passing offline at `f60cf30` (verified 2026-10-06, no Blender); the native execution manifest at `_private/evidence/release_certification_4.5.3/manifest.json` is historical source `39e2810` (2 rows) and does not certify the current HEAD.
 
 The addon metadata minimum is 4.5.3 because Blender's legacy `bl_info.blender` field is a minimum-version declaration. `system_capabilities.runtime_support` treats only 4.5.3/Windows as the verified native baseline; other versions/platforms remain `unverified`.
 
@@ -65,7 +65,9 @@ External research provenance and upstream pins are recorded in `ATTRIBUTION.md`.
 
 ## 4. Blender Extension Contract
 
-### 4.1 Modeling — mandatory (COMPLETED)
+### 4.1 Modeling — mandatory (OPEN)
+
+Required families (UV unwrap currently declared unsupported: `no_uv_unwrap_tool_yet`):
 
 Required families:
 
@@ -87,7 +89,9 @@ Required families:
 - materials;
 - topology/manifold inspection.
 
-### 4.2 Sculpting — mandatory (COMPLETED)
+### 4.2 Sculpting — mandatory (OPEN)
+
+Required families (brush strokes, masks, face sets and multiresolution currently declared unsupported pending valid sculpt-context proof):
 
 Required families:
 
@@ -105,7 +109,7 @@ Required families:
 
 Sculpt tool behavior specifies coordinate/frame semantics for strokes and whether an active area/region/context is required.
 
-### 4.3 Scene / Material / Render (COMPLETED)
+### 4.3 Scene / Material / Render (tools present, native verification PENDING)
 
 - cameras;
 - lights;
@@ -148,17 +152,17 @@ Error semantics distinguish:
 ### B0 — Bridge + Identity (PASS)
 - SlncTrZ compliance; reliable connection to Blender; `help`, status, capability map; file/scene info; object list/get; basic primitives/transforms; integration tests.
 
-### B1 — Reliability & Lifecycle (PASS)
-- Stable `op_id`, mutation lifecycle, timeout uncertainty, reconcile operation, bounded admission queue, timer budget, path containment.
+### B1 — Reliability & Lifecycle (PARTIAL)
+- Stable `op_id`, mutation lifecycle, timeout uncertainty, reconcile operation, bounded admission queue, timer budget, path containment. Client/heavy-op budgets and async hardening remain open.
 
-### B2 — Modeling Baseline (PASS)
-- Mesh edit mode, vertices/edges/faces, topology edits, extrude/inset/bevel, modifiers, collections, materials.
+### B2 — Modeling Baseline (OPEN)
+- Mesh edit mode, vertices/edges/faces, topology edits, extrude/inset/bevel, modifiers, collections, materials. UV unwrap declared unsupported; native acceptance pending.
 
-### B3 — Sculpting Baseline (PASS)
-- Sculpt context validation, mode switching, dynamic topology for Blender 4.5.3, smooth, inflate, grab falloff, symmetry.
+### B3 — Sculpting Baseline (OPEN)
+- Sculpt context validation, mode switching, dynamic topology for Blender 4.5.3, smooth, inflate, grab falloff, symmetry. Brush strokes, masks, face sets and multiresolution declared unsupported; native acceptance pending.
 
-### B4 — Operations & Certification (PASS)
-- Render/export verification, native Blender 4.5.3 LTS release matrix, evidence manifest.
+### B4 — Operations & Certification (PENDING)
+- Render/export tools present; native Blender 4.5.3 LTS release matrix and exact-HEAD evidence manifest pending (current manifest is historical source `39e2810`).
 
 ## 7. Safety / Correctness
 
@@ -171,9 +175,9 @@ Error semantics distinguish:
 
 ## 8. Completion Gate
 
-- Modeling lane passes end-to-end (PASS);
-- Sculpting lane passes end-to-end (PASS);
-- scene/render baseline works (PASS);
-- capability/context reporting matches runtime (PASS);
-- SlncTrZ integration checklist passes (PASS);
-- tests cover topology-impacting sculpt/model operations (1616/1616 tests PASS).
+- Modeling lane passes end-to-end (OPEN — see 4.1);
+- Sculpting lane passes end-to-end (OPEN — see 4.2);
+- scene/render baseline works (tools present, verification PENDING);
+- capability/context reporting matches runtime (PASS for B0 scope; lifecycle tools `reconcile_operation`/`operation_status` not yet covered in `docs/TOOL_GUIDE.md`);
+- SlncTrZ integration checklist passes (PASS for B0 provider-local scope; gateway-side catalog/policy remains an external SlncTrZ-MCP lane item);
+- tests cover topology-impacting sculpt/model operations (PENDING — 1630/1630 offline PASS at `f60cf30`, native fixtures pending).

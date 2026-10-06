@@ -21,7 +21,11 @@ CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
   keys and the `anthropic` dependency).
 - Removed Studio/views/models static mounts from the provider surface.
 - Quarantined discipline builders (`architectural`, `systems`) from the
-  contract: 98 → 90 upstream tools advertised.
+   contract: 98 → 90 upstream tools advertised at fork time (8 held out;
+   current surface at `f60cf30`, verified 2026-10-06: 110 advertised MCP
+   tools — 108 in `docs/tools.md` categories + lifecycle
+   `reconcile_operation` / `operation_status`; quarantine list lives in
+   `scripts/gen_tools_doc.py`).
 - Added `export_fbx` / `export_gltf` interchange tools (Unreal Engine 5 lane).
 - Sculpting honesty: deterministic assists only; strokes/masks/face-sets/
   multires declared unsupported in the capability map.

@@ -45,7 +45,7 @@ B0 proves the supported Blender-version/context matrix and bridge/addon lifecycl
 - primitives/transforms;
 - real Blender integration tests.
 
-Current verified checkpoint (2026-09-14): **B0 baseline/context is accepted** on Blender 4.5.3 LTS / Windows 11. Native evidence covers background discovery plus live UI with no active object, OBJECT, EDIT_MESH and SCULPT contexts; authenticated Streamable HTTP MCP discovery/status/capabilities and cube create → `object_get` read-back are accepted end-to-end. The addon metadata minimum is 4.5.3, while later Blender versions and non-Windows platforms remain unverified rather than implicitly supported. This B0 checkpoint does **not** mean the provider is complete: Modeling and Sculpting remain mandatory end-to-end lanes.
+Current verified checkpoint (certified-at: 2026-09-14 native evidence): **B0 baseline/context is accepted** on Blender 4.5.3 LTS / Windows 11. Native evidence covers background discovery plus live UI with no active object, OBJECT, EDIT_MESH and SCULPT contexts; authenticated Streamable HTTP MCP discovery/status/capabilities and cube create → `object_get` read-back are accepted end-to-end. The addon metadata minimum is 4.5.3, while later Blender versions and non-Windows platforms remain unverified rather than implicitly supported. B1 reliability is partial, B2 modeling / B3 sculpting remain open mandatory gates (UV unwrap, brush strokes, masks, face sets, multiresolution declared unsupported), and B4 certification is pending — see `docs/ROADMAP.md`. This B0 checkpoint does **not** mean the provider is complete: Modeling and Sculpting remain mandatory end-to-end lanes.
 
 ## Start here
 
