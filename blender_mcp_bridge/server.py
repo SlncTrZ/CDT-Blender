@@ -1,5 +1,6 @@
 # blender_mcp_bridge/server.py
 
+import asyncio
 import contextvars
 import json
 import logging
@@ -200,11 +201,14 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     if recorder:
         recorder.record_command(name, clean_args)
 
-    try:
-        blender_res = blender.send_command(name, clean_args, rid, op_id=op_id)
-    except TypeError:
-        # Compatibility fallback if mock/caller signature doesn't take op_id
-        blender_res = blender.send_command(name, clean_args, rid)
+    def _send():
+        try:
+            return blender.send_command(name, clean_args, rid, op_id=op_id)
+        except TypeError:
+            # Compatibility fallback if mock/caller signature doesn't take op_id
+            return blender.send_command(name, clean_args, rid)
+
+    blender_res = await asyncio.to_thread(_send)
     log_status, log_msg, blender_res = _normalize_result(name, blender_res)
 
     logger.info(f"[{transport}] [{rid}] [{log_status}] {log_msg}")

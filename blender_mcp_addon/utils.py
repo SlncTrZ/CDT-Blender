@@ -79,7 +79,7 @@ def require_allowed(path, allow_roots):
 
 
 DEFAULT_HOST = (
-    os.environ.get("BLENDER_ADDON_HOST") or os.environ.get("BLENDER_MCP_HOST") or "0.0.0.0"
+    os.environ.get("BLENDER_ADDON_HOST") or os.environ.get("BLENDER_MCP_HOST") or "127.0.0.1"
 )
 DEFAULT_PORT = int(
     os.environ.get("BLENDER_ADDON_PORT") or os.environ.get("BLENDER_MCP_PORT") or 8888

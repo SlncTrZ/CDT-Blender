@@ -44,6 +44,13 @@ class RenderingTools:
         """Configure render settings"""
         scene = bpy.context.scene
 
+        # F09: Preflight validate output path BEFORE applying any setting mutations
+        resolved_path = None
+        if output_path:
+            resolved_path = _resolve_output_path(output_path)
+            if refusal := _refusal(resolved_path, _allow_roots):
+                return {"success": False, "error": refusal}
+
         if engine:
             scene.render.engine = engine
         if samples:
@@ -55,11 +62,8 @@ class RenderingTools:
             scene.render.resolution_x = resolution_x
         if resolution_y:
             scene.render.resolution_y = resolution_y
-        if output_path:
-            resolved = _resolve_output_path(output_path)
-            if refusal := _refusal(resolved, _allow_roots):
-                return {"success": False, "error": refusal}
-            scene.render.filepath = resolved
+        if resolved_path:
+            scene.render.filepath = resolved_path
 
         return {
             "success": True,
@@ -69,8 +73,10 @@ class RenderingTools:
 
     def render_frame(self, output_path=None, _allow_roots=None):
         """Render current frame"""
-        if output_path:
-            resolved = _resolve_output_path(output_path)
+        # F05: Contain effective render path even if output_path is omitted
+        effective_path = _resolve_output_path(output_path) if output_path else bpy.context.scene.render.filepath
+        resolved = _resolve_output_path(effective_path) if effective_path else None
+        if resolved:
             if refusal := _refusal(resolved, _allow_roots):
                 return {"success": False, "error": refusal}
             bpy.context.scene.render.filepath = resolved
@@ -87,15 +93,18 @@ class RenderingTools:
         """Render animation"""
         scene = bpy.context.scene
 
+        # F05: Contain effective animation path even if output_dir is omitted
+        effective_path = _resolve_output_path(output_dir) if output_dir else scene.render.filepath
+        resolved = _resolve_output_path(effective_path) if effective_path else None
+        if resolved:
+            if refusal := _refusal(resolved, _allow_roots):
+                return {"success": False, "error": refusal}
+            scene.render.filepath = resolved
+
         if start_frame:
             scene.frame_start = start_frame
         if end_frame:
             scene.frame_end = end_frame
-        if output_dir:
-            resolved = _resolve_output_path(output_dir)
-            if refusal := _refusal(resolved, _allow_roots):
-                return {"success": False, "error": refusal}
-            scene.render.filepath = resolved
 
         bpy.ops.render.render(animation=True)
 
