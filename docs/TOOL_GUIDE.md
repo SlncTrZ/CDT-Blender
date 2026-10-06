@@ -75,11 +75,13 @@ Every tool is callable by name. Do not invent tool names.
   FBX/glTF interchange).
 - `common.validate.*` / `common.inspect` / `common.measure` — supported
   (manifold checks, object info, distances).
-- `blender.modeling.*` — supported (primitives, curves, modifiers, operators).
-  UV unwrap: UNSUPPORTED (`no_uv_unwrap_tool_yet`).
+- `blender.modeling.*` — supported (primitives, curves, modifiers, operators,
+  UV unwrap/projection via `unwrap_mesh` and `smart_project`).
 - `blender.sculpt.assist` — supported deterministic assists (smooth, inflate,
-  grab, symmetrize, dyntopo toggle). Brush strokes, masks, face sets and
-  multiresolution: UNSUPPORTED until proven in a valid sculpt context.
+  grab, symmetrize, dyntopo toggle). Mask clear/invert are supported as
+  deterministic whole-mask attribute writes; brush strokes, mask painting,
+  face sets and multiresolution: UNSUPPORTED until proven in a valid sculpt
+  context.
 - `blender.scene.render` — supported (bounded timeouts; a timeout is NOT
   proof of cancellation — re-query state before retrying).
 - `blender.interchange.{fbx,gltf}` — supported. FBX exports Blender-native
@@ -116,7 +118,7 @@ traces. Each error states whether retry is reasonable.
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v8`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v9`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

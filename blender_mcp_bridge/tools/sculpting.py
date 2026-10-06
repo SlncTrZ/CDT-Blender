@@ -180,4 +180,39 @@ def get_sculpting_tools() -> list[types.Tool]:
                 "required": ["object_name"],
             },
         ),
+        types.Tool(
+            name="clear_sculpt_mask",
+            description=(
+                "Clear (zero) the entire sculpt mask of a mesh. Deterministic attribute "
+                "write — works in background mode without a viewport or brush context."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "object_name": {
+                        "type": "string",
+                        "description": "Name of the mesh object whose sculpt mask to clear",
+                    },
+                },
+                "required": ["object_name"],
+            },
+        ),
+        types.Tool(
+            name="invert_sculpt_mask",
+            description=(
+                "Invert the entire sculpt mask of a mesh (each vertex value becomes 1.0 minus "
+                "its current value). Deterministic attribute write — works in background mode "
+                "without a viewport or brush context."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "object_name": {
+                        "type": "string",
+                        "description": "Name of the mesh object whose sculpt mask to invert",
+                    },
+                },
+                "required": ["object_name"],
+            },
+        ),
     ]

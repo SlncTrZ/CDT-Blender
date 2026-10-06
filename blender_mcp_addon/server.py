@@ -682,6 +682,8 @@ class BlenderMCPServer(
             "set_object_visibility": self.set_object_visibility,
             "convert_to_mesh": self.convert_to_mesh,
             "separate_loose_parts": self.separate_loose_parts,
+            "unwrap_mesh": self.unwrap_mesh,
+            "smart_project": self.smart_project,
             # Architectural (ArchBuilder)
             "build_room_shell": self.build_room_shell,
             "build_wall_segment": self.build_wall_segment,
@@ -733,6 +735,8 @@ class BlenderMCPServer(
             "sculpt_inflate": self.sculpt_inflate,
             "sculpt_grab": self.sculpt_grab,
             "symmetrize_mesh": self.symmetrize_mesh,
+            "clear_sculpt_mask": self.clear_sculpt_mask,
+            "invert_sculpt_mask": self.invert_sculpt_mask,
             # History
             "undo": self.undo_action,
             "redo": self.redo_action,

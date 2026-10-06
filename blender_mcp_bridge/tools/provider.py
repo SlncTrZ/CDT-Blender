@@ -67,14 +67,14 @@ def _capability_summary() -> list[str]:
     return [
         "Scene diagnostics: scene/object info, distances, viewport screenshots",
         "Collections: hierarchy, move/duplicate/visibility",
-        "Modeling: primitives, curves, modifiers, transforms, selection, mesh operators",
+        "Modeling: primitives, curves, modifiers, transforms, selection, mesh operators, UV unwrap/projection",
         "Materials, lighting/world, cameras, keyframe animation",
         "Rendering: settings, frames, animation, view generation",
-        "Sculpt assists (deterministic): smooth/inflate/grab/symmetrize/dyntopo",
+        "Sculpt assists (deterministic): smooth/inflate/grab/symmetrize/dyntopo + mask clear/invert",
         "Interchange: STL/3MF/OBJ plus FBX and glTF export (Unreal Engine 5 lane)",
         "Print preparation: manifold checks, voxel remesh, repairs",
         "Native undo/redo history",
-        "No atomic transactions; no brush strokes/masks/face-sets/multires yet",
+        "No atomic transactions; no brush strokes/mask painting/face-sets/multires yet",
     ]
 
 

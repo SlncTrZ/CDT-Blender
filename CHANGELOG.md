@@ -29,3 +29,15 @@ CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 - Added `export_fbx` / `export_gltf` interchange tools (Unreal Engine 5 lane).
 - Sculpting honesty: deterministic assists only; strokes/masks/face-sets/
   multires declared unsupported in the capability map.
+
+### [CDT] H14 — modeling UV + sculpt mask baseline
+
+- Modeling UV unwrap/projection: `unwrap_mesh` (ANGLE_BASED/CONFORMAL) and
+  `smart_project` with measurable UV read-back (layers, loops, non-zero
+  coordinates); `blender.modeling.uv` capability now supported.
+- Sculpt mask clearing/inversion: `clear_sculpt_mask` / `invert_sculpt_mask`
+  as deterministic whole-mask attribute writes (background-safe, no viewport);
+  `blender.sculpt.masks` capability now supported for clear/invert only.
+- Contract bump `cdt-blender-contract-v8` → `v9`; `docs/tools.md` regenerated
+  (112 categories). Brush strokes, mask painting, face sets and
+  multiresolution remain unsupported.

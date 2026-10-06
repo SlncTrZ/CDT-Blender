@@ -313,3 +313,99 @@ class SculptingTools:
             "direction": direction,
             "message": f"Symmetrized '{object_name}' using direction={direction}.",
         }
+
+    def _sculpt_mask_attribute(self, obj):
+        """Return the per-vertex sculpt_mask float attribute, or None when absent.
+
+        Blender stores the sculpt mask in a POINT-domain float attribute named
+        `sculpt_mask`. It only exists once a mask has been painted or the object
+        has entered Sculpt Mode, so a missing attribute is a truthful "no mask"
+        signal rather than an error.
+        """
+        attributes = getattr(obj.data, "attributes", None)
+        if attributes is None:
+            return None
+        return attributes.get("sculpt_mask")
+
+    def clear_sculpt_mask(self, object_name):
+        """Clear (zero) the whole sculpt mask of a mesh.
+
+        Deterministic attribute write — no viewport/brush context required, so
+        it works in background mode. Operates without changing the active mode;
+        only the active object is saved and restored.
+        """
+        obj = get_object(object_name)
+        if obj.type != "MESH":
+            return {"success": False, "error": f"'{object_name}' is not a mesh."}
+
+        original_active = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = obj
+        try:
+            attr = self._sculpt_mask_attribute(obj)
+            if attr is None:
+                return {
+                    "success": True,
+                    "cleared_vertices": 0,
+                    "mask_present": False,
+                    "message": (
+                        f"No sculpt mask layer present on '{object_name}' — nothing to clear."
+                    ),
+                }
+
+            cleared = 0
+            for entry in attr.data:
+                if entry.value != 0.0:
+                    entry.value = 0.0
+                    cleared += 1
+            obj.data.update()
+            return {
+                "success": True,
+                "cleared_vertices": cleared,
+                "mask_present": True,
+                "message": f"Cleared sculpt mask on {cleared} vertex/vertices of '{object_name}'.",
+            }
+        finally:
+            bpy.context.view_layer.objects.active = original_active
+
+    def invert_sculpt_mask(self, object_name):
+        """Invert the whole sculpt mask of a mesh (value = 1.0 - value).
+
+        Deterministic attribute write — no viewport/brush context required, so
+        it works in background mode. Operates without changing the active mode;
+        only the active object is saved and restored.
+        """
+        obj = get_object(object_name)
+        if obj.type != "MESH":
+            return {"success": False, "error": f"'{object_name}' is not a mesh."}
+
+        original_active = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = obj
+        try:
+            attr = self._sculpt_mask_attribute(obj)
+            if attr is None:
+                return {
+                    "success": True,
+                    "inverted_vertices": 0,
+                    "mask_present": False,
+                    "message": (
+                        f"No sculpt mask layer present on '{object_name}' — nothing to invert."
+                    ),
+                }
+
+            inverted = 0
+            for entry in attr.data:
+                new_value = 1.0 - entry.value
+                if new_value != entry.value:
+                    entry.value = new_value
+                    inverted += 1
+            obj.data.update()
+            return {
+                "success": True,
+                "inverted_vertices": inverted,
+                "mask_present": True,
+                "message": (
+                    f"Inverted sculpt mask on {inverted} vertex/vertices of '{object_name}'."
+                ),
+            }
+        finally:
+            bpy.context.view_layer.objects.active = original_active

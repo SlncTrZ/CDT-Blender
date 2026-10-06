@@ -18,7 +18,7 @@ PROVIDER_ID = "blender"
 PROVIDER_VERSION = "0.1.3+cdt.1"
 
 # Bump on any tool/capability change.
-CONTRACT_VERSION = "cdt-blender-contract-v8"
+CONTRACT_VERSION = "cdt-blender-contract-v9"
 
 # Applied CDT common semantics (subset claim — see CAPABILITIES).
 COMMON_CONTRACT_VERSION = "cdt-common-v1"
@@ -88,7 +88,8 @@ ERROR_KINDS = [
 # Honest capability map. Unsupported entries MUST fail with a typed refusal
 # (status "error" + kind "unsupported_capability"), never fake success.
 # Sculpting notes: the provider ships deterministic assists (smooth/inflate/
-# grab/symmetrize/dyntopo toggle). Brush strokes, masks, face sets and
+# grab/symmetrize/dyntopo toggle) plus deterministic mask clear/invert (whole-
+# mask attribute writes). Brush strokes, mask painting, face sets and
 # multiresolution stay unsupported until proven in a valid sculpt context.
 CAPABILITIES: dict[str, dict[str, str | bool]] = {
     "common.document.new": {"supported": True, "mode": "native"},
@@ -128,11 +129,7 @@ CAPABILITIES: dict[str, dict[str, str | bool]] = {
     "common.measure.bounds": {"supported": True, "mode": "native"},
     "blender.modeling.mesh_edit": {"supported": True, "mode": "native"},
     "blender.modeling.modifiers": {"supported": True, "mode": "native"},
-    "blender.modeling.uv": {
-        "supported": False,
-        "mode": "unsupported",
-        "reason": "no_uv_unwrap_tool_yet",
-    },
+    "blender.modeling.uv": {"supported": True, "mode": "native"},
     "blender.sculpt.assist": {"supported": True, "mode": "native"},
     "blender.sculpt.brush_strokes": {
         "supported": False,
@@ -140,9 +137,9 @@ CAPABILITIES: dict[str, dict[str, str | bool]] = {
         "reason": "strokes_need_interactive_sculpt_context",
     },
     "blender.sculpt.masks": {
-        "supported": False,
-        "mode": "unsupported",
-        "reason": "no_mask_tools_yet",
+        "supported": True,
+        "mode": "native",
+        "scope": "mask_clear_and_invert_only_no_brush_painting",
     },
     "blender.sculpt.face_sets": {
         "supported": False,

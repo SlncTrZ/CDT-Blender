@@ -1,4 +1,4 @@
-# Bridge Tool Reference — 108 tools
+# Bridge Tool Reference — 112 tools
 
 Auto-generated from the bridge tool schemas in `blender_mcp_bridge/tools/` (the single source of truth
 the MCP client sees). Regenerate after adding or changing a tool:
@@ -18,7 +18,7 @@ generator and fails loudly on drift.
 - [Common Transform](#common-transform) (3)
 - [Scene & Diagnostics](#scene--diagnostics) (4)
 - [Collections](#collections) (7)
-- [Modeling](#modeling) (40)
+- [Modeling](#modeling) (42)
 - [Materials](#materials) (7)
 - [Lighting & World](#lighting--world) (3)
 - [Camera](#camera) (3)
@@ -27,7 +27,7 @@ generator and fails loudly on drift.
 - [History / Undo](#history--undo) (2)
 - [Interchange](#interchange) (2)
 - [3D-Print Preparation](#3d-print-preparation) (6)
-- [Sculpting](#sculpting) (7)
+- [Sculpting](#sculpting) (9)
 - [Design Rules](#design-rules) (3)
 
 ## Provider
@@ -135,7 +135,9 @@ generator and fails loudly on drift.
 | `set_object_dimensions` | Set exact world-space bounding box dimensions for an object, in meters. Rotation-safe: works correctly regardless of the object's current rotation. | **object_name**, **x**, **y**, **z** |
 | `set_object_visibility` | Toggle or set visibility of an object in the viewport and/or render. SMART TOGGLE: If 'hide_viewport' and 'hide_render' are both omitted, the current visibility state will be flipped. | **object_name**, hide_viewport, hide_render |
 | `shear_mesh` | Shear mesh geometry along an axis (useful for sloped roofs). PRO TIP: Use 'filter_normal' (e.g. [0,0,1]) to shear only the top faces. | **object_name**, **value**, axis, orient_axis, filter_normal, angle_threshold |
+| `smart_project` | Project UVs onto a mesh object using Blender's Smart UV Project. Automatically lays out UV islands based on face angles, then reports UV read-back (UV layers, loop count, non-zero coordinates). | **object_name**, angle_limit, island_margin, area_weight, correct_aspect, scale_to_bounds |
 | `transform_object` | Transform an existing object's position, rotation, or scale. Supports bulk transformation via pattern. | object_name, pattern, location, location_offset, rotation, rotation_offset, scale, hide_viewport, hide_render |
+| `unwrap_mesh` | Unwrap the UVs of a mesh object using Blender's native unwrap operator. Selects all faces and unwraps the whole mesh, then reports UV read-back (UV layers, loop count, non-zero coordinates). | **object_name**, method, fill_holes, correct_aspect, use_subsurf_data, margin |
 
 ## Materials
 
@@ -213,8 +215,10 @@ generator and fails loudly on drift.
 | Tool | Description | Parameters (**bold** = required) |
 |---|---|---|
 | `apply_sculpt_smooth` | Apply Laplacian smoothing to an entire mesh to round out hard edges and surface bumps. Works in Object Mode — no live viewport needed. Use after voxel remesh to soften blocky artifacts. | **object_name**, iterations, factor |
+| `clear_sculpt_mask` | Clear (zero) the entire sculpt mask of a mesh. Deterministic attribute write — works in background mode without a viewport or brush context. | **object_name** |
 | `enter_sculpt_mode` | Switch a mesh object into Blender's Sculpt Mode. Must be called before set_dyntopo or symmetrize_mesh. | **object_name** |
 | `exit_sculpt_mode` | Exit Sculpt Mode and return the active object to Object Mode. | — |
+| `invert_sculpt_mask` | Invert the entire sculpt mask of a mesh (each vertex value becomes 1.0 minus its current value). Deterministic attribute write — works in background mode without a viewport or brush context. | **object_name** |
 | `sculpt_grab` | Grab-brush style sculpt: move vertices near a 3D location by an offset vector. Uses smooth cosine falloff: vertices at the center move the full offset, vertices at the radius edge are barely moved. Use this to pull a ... | **object_name**, **location**, **offset**, radius |
 | `sculpt_inflate` | Inflate or deflate a mesh by displacing all vertices along their surface normals. Positive distance = expand outward like a balloon. Negative distance = shrink inward. Use mask_below_z to protect the flat base (e.g. m... | **object_name**, distance, mask_below_z |
 | `set_dyntopo` | Enable or disable Dynamic Topology (Dyntopo) in Sculpt Mode. Dyntopo automatically subdivides or merges polygons as you sculpt, allowing unlimited resolution in specific areas. Requires enter_sculpt_mode to be called ... | enabled, detail_size, constant_detail |

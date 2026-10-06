@@ -8,6 +8,7 @@ from .primitives import ModelingPrimitives
 from .selection import ModelingSelection
 from .systems import ModelingSystems
 from .transforms import ModelingTransforms
+from .uv import ModelingUV
 
 
 class ModelingTools(
@@ -19,6 +20,7 @@ class ModelingTools(
     ModelingOperators,
     ModelingArchitectural,
     ModelingSystems,
+    ModelingUV,
 ):
     """Refactored Modeling Tools for Blender MCP"""
 
