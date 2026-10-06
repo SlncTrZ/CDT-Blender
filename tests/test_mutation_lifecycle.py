@@ -371,6 +371,16 @@ def test_server_started_timeout_becomes_uncertain(monkeypatch):
     assert dep_res["status"] == "error"
     assert dep_res["kind"] == "uncertain_predecessor_blocked"
 
-    rec_res = server.reconcile_operation(op_id, action="clear")
-    assert rec_res["status"] == "success"
+    # Test unverified reconcile does NOT unlock uncertainty
+    rec_unverified = server.lifecycle.reconcile(
+        op_id, action="resolve", native_verifier=lambda r: {"verified": False}
+    )
+    assert rec_unverified["status"] == "success"
+    assert op_id in server.lifecycle.get_uncertain_ops()
+
+    # Test verified reconcile DOES unlock uncertainty
+    rec_verified = server.lifecycle.reconcile(
+        op_id, action="resolve", native_verifier=lambda r: {"verified": True}
+    )
+    assert rec_verified["status"] == "success"
     assert op_id not in server.lifecycle.get_uncertain_ops()

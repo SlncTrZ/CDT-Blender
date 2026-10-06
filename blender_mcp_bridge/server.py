@@ -182,10 +182,15 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             )
         ]
 
-    # Extract semantic op_id if provided by caller; rid is correlation id
-    op_id = clean_args.pop("op_id", None)
-    if op_id is not None:
-        op_id = str(op_id)
+    # Check for recovery tools to preserve identity and prevent target collision
+    if name in ("reconcile_operation", "operation_status"):
+        # Generate a distinct request op_id for the recovery query itself
+        op_id = f"recovery-{rid}"
+    else:
+        # Extract semantic op_id if provided by caller; rid is correlation id
+        op_id = clean_args.pop("op_id", None)
+        if op_id is not None:
+            op_id = str(op_id)
 
     if name in _PATH_GUARDED_TOOLS:
         clean_args["_allow_roots"] = _allow_roots()
@@ -216,18 +221,34 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     return [types.TextContent(type="text", text=json.dumps(blender_res, indent=2))]
 
 
+def _flatten_bridge_result(blender_res):
+    """Unnest bridge envelope and preserve lifecycle fields."""
+    if not (isinstance(blender_res, dict) and "result" in blender_res and "status" in blender_res):
+        return blender_res
+    outer = blender_res
+    inner = blender_res["result"]
+    meta_keys = ("cached", "op_id", "receipt", "kind", "retryable")
+    if isinstance(inner, dict):
+        for k in meta_keys:
+            if k in outer and k not in inner:
+                inner[k] = outer[k]
+        if "status" not in inner:
+            inner["status"] = outer["status"]
+        return inner
+    res = {"status": outer["status"], "result": inner}
+    for k in meta_keys:
+        if k in outer:
+            res[k] = outer[k]
+    return res
+
+
 def _normalize_result(name: str, blender_res):
     """Flatten nested bridge results and derive the console log line.
 
     Returns (log_status, log_msg, normalized_result). Pure reshaping —
     no Blender contact, no policy decisions.
     """
-    # Flatten nested results from bridge
-    if isinstance(blender_res, dict) and "result" in blender_res and "status" in blender_res:
-        status_val = blender_res["status"]
-        blender_res = blender_res["result"]
-        if isinstance(blender_res, dict) and "status" not in blender_res:
-            blender_res["status"] = status_val
+    blender_res = _flatten_bridge_result(blender_res)
 
     # Guard: tool returned None (missing return statement) — convert to a safe dict
     if blender_res is None:

@@ -75,11 +75,12 @@ class RenderingTools:
         """Render current frame"""
         # F05: Contain effective render path even if output_path is omitted
         effective_path = _resolve_output_path(output_path) if output_path else bpy.context.scene.render.filepath
-        resolved = _resolve_output_path(effective_path) if effective_path else None
-        if resolved:
-            if refusal := _refusal(resolved, _allow_roots):
-                return {"success": False, "error": refusal}
-            bpy.context.scene.render.filepath = resolved
+        if not effective_path:
+            return {"success": False, "error": "Render filepath is not set."}
+        resolved = _resolve_output_path(effective_path)
+        if refusal := _refusal(resolved, _allow_roots):
+            return {"success": False, "error": refusal}
+        bpy.context.scene.render.filepath = resolved
 
         bpy.ops.render.render(write_still=True)
 
@@ -95,11 +96,12 @@ class RenderingTools:
 
         # F05: Contain effective animation path even if output_dir is omitted
         effective_path = _resolve_output_path(output_dir) if output_dir else scene.render.filepath
-        resolved = _resolve_output_path(effective_path) if effective_path else None
-        if resolved:
-            if refusal := _refusal(resolved, _allow_roots):
-                return {"success": False, "error": refusal}
-            scene.render.filepath = resolved
+        if not effective_path:
+            return {"success": False, "error": "Render filepath/output_dir is not set."}
+        resolved = _resolve_output_path(effective_path)
+        if refusal := _refusal(resolved, _allow_roots):
+            return {"success": False, "error": refusal}
+        scene.render.filepath = resolved
 
         if start_frame:
             scene.frame_start = start_frame

@@ -210,14 +210,15 @@ class MutationLifecycleManager:
             return True, None
 
     def rollback_reservation(self, op_id: str, reason: str = "Admission rejected"):
-        """Rollback a pending reservation if enqueuing fails (e.g. queue full)."""
+        """Rollback a pending reservation if enqueuing fails (e.g. queue full).
+
+        Queue saturation is transient: the reservation is removed so a subsequent
+        retry with the same semantic op_id can be admitted once queue backlog drains.
+        """
         with self._lock:
             self._pending_ops.discard(op_id)
-            receipt = self._receipts.get(op_id)
-            if receipt and receipt.get("state") == ReceiptState.PENDING:
-                receipt["state"] = ReceiptState.FAILED
-                receipt["message"] = reason
-                receipt["finished_at"] = time.time()
+            # Remove pending entry rather than recording terminal FAILED
+            self._receipts.pop(op_id, None)
 
     def can_dispatch_queued(self, op_id: str, cmd_type: str) -> tuple[bool, dict[str, Any] | None]:
         """F03: Verify before dispatch that no predecessor became uncertain while queued."""
@@ -338,22 +339,22 @@ class MutationLifecycleManager:
                     native_report = {"verified": False, "error": str(exc)}
 
             verified_ok = False
-            if receipt.get("background_committed") or (native_report and native_report.get("verified")):
+            if native_report is not None:
+                if native_report.get("verified"):
+                    verified_ok = True
+                    receipt["state"] = ReceiptState.COMMITTED
+            elif receipt.get("background_committed"):
                 verified_ok = True
                 receipt["state"] = ReceiptState.COMMITTED
             elif receipt.get("background_failed"):
                 verified_ok = True
                 receipt["state"] = ReceiptState.FAILED
 
-            # Only discard from uncertainty set if verified or explicit admin clear
-            if action in ("resolve", "acknowledge") and verified_ok:
+            # Uncertainty can ONLY be unlocked when verified_ok is True
+            if action in ("resolve", "acknowledge", "clear") and verified_ok:
                 self._uncertain_ops.discard(op_id)
                 receipt["reconciled_at"] = time.time()
                 receipt["reconcile_action"] = action
-            elif action == "clear":  # Emergency admin override
-                self._uncertain_ops.discard(op_id)
-                receipt["reconciled_at"] = time.time()
-                receipt["reconcile_action"] = "admin_clear_unverified"
 
             return {
                 "status": "success",
