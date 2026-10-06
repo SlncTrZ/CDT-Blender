@@ -71,8 +71,9 @@ class ModelingOperators:
             # Inherit Z from object if only X,Y provided
             center = [center[0], center[1], obj.location[2]]
 
-        created = []
+        created: list[str] = []
         angle_step = 360.0 / count
+        rot: tuple[float, float, float]
 
         for i in range(count):
             angle_rad = math.radians(start_angle + i * angle_step)

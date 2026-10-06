@@ -50,7 +50,7 @@ def _verify_export_artifact(path, format_upper):
                     info["format"] = "stl_binary"
                     info["triangle_count"] = tri_count
         if not binary:
-            with open(path, "r", errors="ignore") as handle:
+            with open(path, errors="ignore") as handle:
                 head = handle.read(4096).lstrip()
             lower = head.lower()
             # A real ASCII STL starts with 'solid' and contains at least one
@@ -288,7 +288,7 @@ class PrintingTools:
         selected_objects = bpy.context.selected_objects.copy()
 
         # Set selection context if object_name is specified
-        if object_name:
+        if obj is not None:
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(True)
             bpy.context.view_layer.objects.active = obj

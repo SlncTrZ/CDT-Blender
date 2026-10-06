@@ -214,15 +214,11 @@ def test_mutation_op_id_schema_is_bounded_string(tool):
     assert "op_id" not in (tool.inputSchema.get("required") or [])
 
 
-@pytest.mark.parametrize(
-    "tool", _NON_MUTATION_TOOLS, ids=[t.name for t in _NON_MUTATION_TOOLS]
-)
+@pytest.mark.parametrize("tool", _NON_MUTATION_TOOLS, ids=[t.name for t in _NON_MUTATION_TOOLS])
 def test_non_mutation_tools_have_no_op_id(tool):
     """Read-only/local tools have nothing to reconcile, so no op_id key."""
     props = tool.inputSchema.get("properties", {})
-    assert "op_id" not in props, (
-        f"{tool.name} is read-only but declares an op_id mutation key"
-    )
+    assert "op_id" not in props, f"{tool.name} is read-only but declares an op_id mutation key"
 
 
 def test_mutation_and_non_mutation_partition_is_non_empty():

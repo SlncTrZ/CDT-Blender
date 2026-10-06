@@ -118,3 +118,26 @@ check_untyped_defs = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = false
+
+# The addon runs only inside Blender, where bpy/bmesh/mathutils exist but ship
+# no type stubs. `ignore_missing_imports` therefore makes mypy treat the
+# `# type: ignore` markers on those imports as redundant (unused-ignore), while
+# basedpyright — which cannot resolve the modules at all — needs a suppression
+# present to stay quiet. The two rules are mutually exclusive on the same line,
+# so satisfying one always trips the other.
+#
+# `# pyright: ignore[<rule>]` is the one form both accept, but converting every
+# marker is churn across 24 files for zero type-safety gain. Instead, scope the
+# check exactly as CI already does (.github/workflows/ci.yml documents that the
+# addon is excluded because bpy has no stubs): keep mypy's unused-ignore rule
+# off for the addon only, so every other mypy check there stays active.
+[[tool.mypy.overrides]]
+module = "blender_mcp_addon.*"
+warn_unused_ignores = false
+
+# ── Pyright / basedpyright ───────────────────────────────────────────────────
+# Same boundary as the mypy override above and the CI type-check job. The addon
+# is verified against the real Blender runtime (see
+# scripts/run_release_certification.py), where those modules do exist.
+[tool.pyright]
+exclude = ["blender_mcp_addon"]

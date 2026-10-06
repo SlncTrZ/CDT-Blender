@@ -1,6 +1,7 @@
 # blender_mcp_addon/tools/modeling/architectural.py
 
 import math
+from typing import Any
 
 import bmesh  # type: ignore
 import bpy  # type: ignore
@@ -105,7 +106,7 @@ class ModelingArchitectural:
                 coll = bpy.context.scene.collection
 
             # Deduplicate consecutive identical points
-            pts2d = []
+            pts2d: list[Any] = []
             for p in vertices:
                 v = mathutils.Vector((p[0], p[1], 0.0))
                 if not pts2d or (v - pts2d[-1]).length > 1e-4:
@@ -153,7 +154,7 @@ class ModelingArchitectural:
             bm_walls = bmesh.new()
 
             # 1. Collect ALL opening heights (Z) building-wide to ensure manifold corners
-            edge_openings = {}
+            edge_openings: dict[int, list[tuple[str, float, float, float, float]]] = {}
             # Walls start at -floor_thickness to cover the slab, interior floor is at 0.0
             global_z_cuts = {-floor_thickness, 0.0, height}
 

@@ -94,7 +94,7 @@ class ModelingCurves:
         if segments is not None:
             # ── mixed line/arc profile -> one BEZIER spline with exact arcs ──
             EPS = 1e-6
-            ctrl = []  # {co, hl, hr, hl_type, hr_type}
+            ctrl: list[dict] = []  # {co, hl, hr, hl_type, hr_type}
 
             def add_point(co, hl_type="VECTOR", hr_type="VECTOR", hl=None, hr=None):
                 if ctrl:

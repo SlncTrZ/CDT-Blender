@@ -6,11 +6,34 @@ import bpy  # type: ignore
 
 
 def hex_to_rgb(hex_color):
-    """Convert hex color string to RGB tuple"""
-    if isinstance(hex_color, str) and hex_color.startswith("#"):
-        hex_color = hex_color.lstrip("#")
-        return tuple(int(hex_color[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
-    return hex_color
+    """Convert a colour spec to a normalized float RGB 3-tuple.
+
+    Accepts a hex string (with or without the leading '#') or an already-numeric
+    3-element sequence. Anything else raises ValueError.
+
+    This previously returned the input unchanged for any string lacking a '#',
+    so `"FF0000"` silently became a 7-element tuple at the `(*rgb, 1.0)` call
+    sites and a numeric input raised TypeError there instead of here.
+    """
+    if isinstance(hex_color, str):
+        digits = hex_color.lstrip("#")
+        if len(digits) != 6:
+            raise ValueError(f"hex colour must be 6 hex digits (e.g. '#RRGGBB'), got {hex_color!r}")
+        try:
+            return tuple(int(digits[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+        except ValueError as exc:
+            raise ValueError(f"hex colour contains non-hex digits: {hex_color!r}") from exc
+
+    # Already-numeric RGB sequence (e.g. [1.0, 0.0, 0.0] or a mathutils colour)
+    try:
+        channels = tuple(float(c) for c in hex_color)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"colour must be a hex string or a 3-element numeric sequence, got {hex_color!r}"
+        ) from exc
+    if len(channels) != 3:
+        raise ValueError(f"colour sequence must have exactly 3 channels, got {len(channels)}")
+    return channels
 
 
 def get_object(name):

@@ -65,7 +65,9 @@ class InterchangeTools:
             "message": f"Exported FBX to '{path}'.",
         }
 
-    def export_gltf(self, filepath, export_selected=False, export_materials="EXPORT", _allow_roots=None):
+    def export_gltf(
+        self, filepath, export_selected=False, export_materials="EXPORT", _allow_roots=None
+    ):
         """Export scene/selection to glTF 2.0 (.glb/.gltf)."""
         path, error = self._checked_path(filepath, {".glb", ".gltf"}, _allow_roots)
         if error:

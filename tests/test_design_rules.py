@@ -11,6 +11,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -158,7 +159,12 @@ class TestRegistrationAndDispatch:
         with mock.patch.object(server.blender, "send_command", explode):
             for name in DESIGN_RULE_HANDLERS:
                 args = {"description": "2mm wall"} if name == "check_design" else {}
-                result = asyncio.run(call_tool(name, args))
+
+                async def _invoke_local(tool_name=name, tool_args=args):
+                    local_res: Any = await call_tool(tool_name, tool_args)
+                    return local_res
+
+                result: Any = asyncio.run(_invoke_local())
                 assert json.loads(result[0].text)["status"] == "success"
 
     @needs_export
@@ -173,7 +179,11 @@ class TestRegistrationAndDispatch:
 
         call_tool = getattr(server.call_tool, "__wrapped__", server.call_tool)
         with mock.patch.object(server.blender, "send_command", capture):
-            asyncio.run(call_tool("create_cube", {"name": "Box"}))
+
+            async def _invoke_forward():
+                return await call_tool("create_cube", {"name": "Box"})
+
+            asyncio.run(_invoke_forward())
         assert seen["name"] == "create_cube"
 
 

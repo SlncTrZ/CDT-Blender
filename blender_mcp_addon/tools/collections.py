@@ -1,5 +1,7 @@
 # blender_mcp_addon/tools/collections.py
 
+from typing import Any
+
 import bpy  # type: ignore
 
 from ..utils import get_collection, get_object
@@ -179,8 +181,8 @@ class CollectionTools:
             }
 
         root = bpy.context.scene.collection
-        reachable = {}
-        parents = {}
+        reachable: dict[str, Any] = {}
+        parents: dict[str, set[str]] = {}
 
         def visit(collection):
             reachable[collection.name] = collection
@@ -191,7 +193,7 @@ class CollectionTools:
 
         visit(root)
 
-        layer_states = {}
+        layer_states: dict[str, list[dict[str, Any]]] = {}
 
         def visit_layer(layer_collection, path):
             collection_name = layer_collection.collection.name

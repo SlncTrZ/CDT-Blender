@@ -9,6 +9,8 @@ import threading
 import time
 import traceback
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 import bpy  # type: ignore
 
@@ -72,7 +74,7 @@ class BlenderMCPServer(
         self.server_socket: socket.socket | None = None
         self.running = False
         self.server_thread = None
-        self.command_queue = queue.Queue(maxsize=ADMISSION_QUEUE_MAXSIZE)
+        self.command_queue: queue.Queue = queue.Queue(maxsize=ADMISSION_QUEUE_MAXSIZE)
         self.last_error = None
         self.timer_handle = None
         self.lifecycle = MutationLifecycleManager()
@@ -606,7 +608,7 @@ class BlenderMCPServer(
 
         # Map types to methods (inherited from tool classes)
         # This keeps the dispatcher dynamic and maintains compatibility with existing client
-        methods = {
+        methods: dict[str, Callable[..., Any]] = {
             # Runtime discovery (internal bridge command; not advertised as an MCP tool)
             "get_runtime_context": self.get_runtime_context,
             "reconcile_operation": self.reconcile_operation,

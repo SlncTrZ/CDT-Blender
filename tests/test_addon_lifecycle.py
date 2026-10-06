@@ -320,19 +320,20 @@ def test_addon_transport_reassembles_fragmented_json_request(monkeypatch):
     module, _timers = _load_server_module(monkeypatch)
     server = module.BlenderMCPServer()
     received = []
-    server.handle_command = lambda command: received.append(command) or {
-        "status": "success",
-        "result": {"ok": True},
-    }
+    server.handle_command = lambda command: (
+        received.append(command)
+        or {
+            "status": "success",
+            "result": {"ok": True},
+        }
+    )
     client = ScriptedClient(
         [b'{"type":"get_runtime_', b'context","params":{},"request_id":"frag"}']
     )
 
     server._handle_client(client)
 
-    assert received == [
-        {"type": "get_runtime_context", "params": {}, "request_id": "frag"}
-    ]
+    assert received == [{"type": "get_runtime_context", "params": {}, "request_id": "frag"}]
     assert _last_response(client) == {"status": "success", "result": {"ok": True}}
     assert client.closed is True
 

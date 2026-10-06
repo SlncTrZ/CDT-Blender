@@ -688,7 +688,7 @@ class ModelingPrimitives:
         engrave_regions = engrave_regions or []
 
         def clean(loop, eps=1e-3):
-            out = []
+            out: list[tuple[float, float]] = []
             for p in loop:
                 p = (float(p[0]), float(p[1]))
                 if not out or abs(p[0] - out[-1][0]) > eps or abs(p[1] - out[-1][1]) > eps:
@@ -732,8 +732,8 @@ class ModelingPrimitives:
         z_top = float(thickness)
         z_floor = z_top - float(engrave_depth)
 
-        verts = []  # (x, y, z)
-        faces = []  # index tuples
+        verts: list[tuple[float, float, float]] = []  # (x, y, z)
+        faces: list[tuple[int, ...]] = []  # index tuples
 
         def add_ring(loop, z):
             base = len(verts)

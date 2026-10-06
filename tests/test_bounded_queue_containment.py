@@ -1,12 +1,14 @@
 """Tests for Bounded execution / backpressure (BL-03) and Path containment (BL-04)."""
 
+import importlib.util
 import os
-import queue
 import sys
 import tempfile
 import threading
 import time
 import types
+from pathlib import Path
+
 import pytest
 
 if "bpy" not in sys.modules:
@@ -32,12 +34,10 @@ if "bpy" not in sys.modules:
         utils=types.SimpleNamespace(register_class=lambda c: None, unregister_class=lambda c: None),
     )
 
-import importlib.util
-from pathlib import Path
-
 ROOT = Path(__file__).resolve().parents[1]
 SERVER_PATH = ROOT / "blender_mcp_addon" / "server.py"
 LIFECYCLE_PATH = ROOT / "blender_mcp_addon" / "lifecycle.py"
+
 
 def _get_server():
     package = types.ModuleType("blender_mcp_addon")
@@ -51,25 +51,41 @@ def _get_server():
     spec_lc.loader.exec_module(lc_mod)
 
     for name in (
-        "animation", "camera", "collections", "document", "history",
-        "interchange", "lighting", "materials", "object_query",
-        "printing", "rendering", "scene", "sculpting",
+        "animation",
+        "camera",
+        "collections",
+        "document",
+        "history",
+        "interchange",
+        "lighting",
+        "materials",
+        "object_query",
+        "printing",
+        "rendering",
+        "scene",
+        "sculpting",
     ):
         mod = types.ModuleType(f"blender_mcp_addon.tools.{name}")
         cname = {
-            "animation": "AnimationTools", "camera": "CameraTools",
-            "collections": "CollectionTools", "document": "DocumentTools",
-            "history": "HistoryTools", "interchange": "InterchangeTools",
-            "lighting": "LightTools", "materials": "MaterialTools",
-            "object_query": "ObjectQueryTools", "printing": "PrintingTools",
-            "rendering": "RenderingTools", "scene": "SceneTools",
+            "animation": "AnimationTools",
+            "camera": "CameraTools",
+            "collections": "CollectionTools",
+            "document": "DocumentTools",
+            "history": "HistoryTools",
+            "interchange": "InterchangeTools",
+            "lighting": "LightTools",
+            "materials": "MaterialTools",
+            "object_query": "ObjectQueryTools",
+            "printing": "PrintingTools",
+            "rendering": "RenderingTools",
+            "scene": "SceneTools",
             "sculpting": "SculptingTools",
         }[name]
         setattr(mod, cname, type(cname, (), {}))
         sys.modules[mod.__name__] = mod
 
     modeling = types.ModuleType("blender_mcp_addon.tools.modeling")
-    setattr(modeling, "ModelingTools", type("ModelingTools", (), {}))
+    modeling.ModelingTools = type("ModelingTools", (), {})
     sys.modules[modeling.__name__] = modeling
 
     spec = importlib.util.spec_from_file_location("blender_mcp_addon.server", SERVER_PATH)
@@ -79,13 +95,14 @@ def _get_server():
     spec.loader.exec_module(smod)
     return smod
 
+
 server_mod = _get_server()
 BlenderMCPServer = server_mod.BlenderMCPServer
 ADMISSION_QUEUE_MAXSIZE = server_mod.ADMISSION_QUEUE_MAXSIZE
 MAX_COMMANDS_PER_TICK = server_mod.MAX_COMMANDS_PER_TICK
 MAX_ACTIVE_CLIENT_THREADS = server_mod.MAX_ACTIVE_CLIENT_THREADS
 
-from blender_mcp_addon.utils import (
+from blender_mcp_addon.utils import (  # noqa: E402
     OutsideAllowRoots,
     require_allowed,
 )
@@ -99,22 +116,26 @@ def test_admission_queue_saturation_rejection():
     for i in range(ADMISSION_QUEUE_MAXSIZE):
         ev = threading.Event()
         events.append(ev)
-        server.command_queue.put_nowait({
-            "command": {"type": "object_list", "op_id": f"q-fill-{i}"},
-            "event": ev,
-            "container": {"result": None},
-            "op_id": f"q-fill-{i}",
-            "deadline": time.monotonic() + 10.0,
-            "cmd_type": "object_list",
-        })
+        server.command_queue.put_nowait(
+            {
+                "command": {"type": "object_list", "op_id": f"q-fill-{i}"},
+                "event": ev,
+                "container": {"result": None},
+                "op_id": f"q-fill-{i}",
+                "deadline": time.monotonic() + 10.0,
+                "cmd_type": "object_list",
+            }
+        )
 
     assert server.command_queue.qsize() == ADMISSION_QUEUE_MAXSIZE
 
-    res = server.handle_command({
-        "type": "create_cube",
-        "op_id": "overflow-cmd",
-        "params": {},
-    })
+    res = server.handle_command(
+        {
+            "type": "create_cube",
+            "op_id": "overflow-cmd",
+            "params": {},
+        }
+    )
 
     assert res["status"] == "error"
     assert res["kind"] == "rate_limited"
@@ -176,14 +197,16 @@ def test_commands_per_tick_budget(monkeypatch):
 
     for i in range(10):
         ev = threading.Event()
-        server.command_queue.put_nowait({
-            "command": {"type": "object_list", "op_id": f"op-{i}"},
-            "event": ev,
-            "container": {"result": None},
-            "op_id": f"op-{i}",
-            "deadline": time.monotonic() + 10.0,
-            "cmd_type": "object_list",
-        })
+        server.command_queue.put_nowait(
+            {
+                "command": {"type": "object_list", "op_id": f"op-{i}"},
+                "event": ev,
+                "container": {"result": None},
+                "op_id": f"op-{i}",
+                "deadline": time.monotonic() + 10.0,
+                "cmd_type": "object_list",
+            }
+        )
 
     server._process_queue()
 
