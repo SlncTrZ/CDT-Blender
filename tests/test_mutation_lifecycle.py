@@ -41,8 +41,12 @@ class FakeTimers:
 def _load_server_module(monkeypatch):
     timers = FakeTimers()
     bpy = types.SimpleNamespace(
-        app=types.SimpleNamespace(timers=timers, version_string="4.5.3", version=(4, 5, 3), background=True),
-        context=types.SimpleNamespace(active_object=None, mode="OBJECT", window_manager=None, scene=None),
+        app=types.SimpleNamespace(
+            timers=timers, version_string="4.5.3", version=(4, 5, 3), background=True
+        ),
+        context=types.SimpleNamespace(
+            active_object=None, mode="OBJECT", window_manager=None, scene=None
+        ),
         data=types.SimpleNamespace(objects={}, filepath=""),
     )
     monkeypatch.setitem(sys.modules, "bpy", bpy)
@@ -106,7 +110,9 @@ def test_lifecycle_manager_idempotency_and_fingerprint():
     mgr = MutationLifecycleManager()
     op_id = "op-uuid-1"
 
-    admitted, rej = mgr.reserve_and_admit("create_cube", op_id, {"size": 1.0}, time.monotonic() + 10)
+    admitted, rej = mgr.reserve_and_admit(
+        "create_cube", op_id, {"size": 1.0}, time.monotonic() + 10
+    )
     assert admitted is True
     assert rej is None
 
@@ -114,7 +120,9 @@ def test_lifecycle_manager_idempotency_and_fingerprint():
     mgr.record_committed(op_id, {"status": "success", "name": "Cube"})
 
     # Re-submission with same op_id and SAME payload: cached return
-    admitted2, rej2 = mgr.reserve_and_admit("create_cube", op_id, {"size": 1.0}, time.monotonic() + 10)
+    admitted2, rej2 = mgr.reserve_and_admit(
+        "create_cube", op_id, {"size": 1.0}, time.monotonic() + 10
+    )
     assert admitted2 is False
     assert rej2 is not None
     assert rej2["status"] == "success"
@@ -122,7 +130,9 @@ def test_lifecycle_manager_idempotency_and_fingerprint():
     assert rej2["op_id"] == op_id
 
     # F11: Re-submission with same op_id but DIFFERENT payload: conflict error
-    admitted3, rej3 = mgr.reserve_and_admit("create_cube", op_id, {"size": 2.0}, time.monotonic() + 10)
+    admitted3, rej3 = mgr.reserve_and_admit(
+        "create_cube", op_id, {"size": 2.0}, time.monotonic() + 10
+    )
     assert admitted3 is False
     assert rej3 is not None
     assert rej3["status"] == "error"
@@ -146,11 +156,15 @@ def test_lifecycle_uncertain_predecessor_gating():
     assert op1 in rej["uncertain_operations"]
 
     # Read-only query is allowed
-    admitted_q, rej_query = mgr.reserve_and_admit("object_list", "op-query", {}, time.monotonic() + 10)
+    admitted_q, rej_query = mgr.reserve_and_admit(
+        "object_list", "op-query", {}, time.monotonic() + 10
+    )
     assert admitted_q is True
 
     # F04: Reconcile with unverified report does NOT unlock
-    rec_unverified = mgr.reconcile(op1, action="resolve", native_verifier=lambda r: {"verified": False})
+    rec_unverified = mgr.reconcile(
+        op1, action="resolve", native_verifier=lambda r: {"verified": False}
+    )
     assert rec_unverified["status"] == "success"
     assert mgr.has_uncertain() is True
 
@@ -217,12 +231,14 @@ def test_server_concurrent_pending_duplicate_rejected(monkeypatch):
 
     def submit():
         results.append(
-            server.handle_command({
-                "type": "create_cube",
-                "op_id": "same-concurrent-id",
-                "timeout": 2.0,
-                "params": {},
-            })
+            server.handle_command(
+                {
+                    "type": "create_cube",
+                    "op_id": "same-concurrent-id",
+                    "timeout": 2.0,
+                    "params": {},
+                }
+            )
         )
 
     t1 = threading.Thread(target=submit)
@@ -255,27 +271,31 @@ def test_server_queued_dependent_blocked_when_predecessor_becomes_uncertain(monk
 
     # Admit A
     server.lifecycle.reserve_and_admit("create_cube", "op-A", {}, time.monotonic() + 10)
-    server.command_queue.put_nowait({
-        "command": {"type": "create_cube", "op_id": "op-A"},
-        "event": threading.Event(),
-        "container": {"result": None},
-        "op_id": "op-A",
-        "deadline": time.monotonic() + 10,
-        "cmd_type": "create_cube",
-    })
+    server.command_queue.put_nowait(
+        {
+            "command": {"type": "create_cube", "op_id": "op-A"},
+            "event": threading.Event(),
+            "container": {"result": None},
+            "op_id": "op-A",
+            "deadline": time.monotonic() + 10,
+            "cmd_type": "create_cube",
+        }
+    )
 
     # Admit B while A is still pending
     server.lifecycle.reserve_and_admit("object_move", "op-B", {}, time.monotonic() + 10)
     ev_B = threading.Event()
     cont_B = {"result": None}
-    server.command_queue.put_nowait({
-        "command": {"type": "object_move", "op_id": "op-B"},
-        "event": ev_B,
-        "container": cont_B,
-        "op_id": "op-B",
-        "deadline": time.monotonic() + 10,
-        "cmd_type": "object_move",
-    })
+    server.command_queue.put_nowait(
+        {
+            "command": {"type": "object_move", "op_id": "op-B"},
+            "event": ev_B,
+            "container": cont_B,
+            "op_id": "op-B",
+            "deadline": time.monotonic() + 10,
+            "cmd_type": "object_move",
+        }
+    )
 
     # A executes and becomes uncertain
     server.lifecycle.record_uncertain("op-A", "timeout during dispatch", "create_cube")
@@ -341,12 +361,14 @@ def test_server_started_timeout_becomes_uncertain(monkeypatch):
 
     def run_cmd():
         nonlocal res
-        res = server.handle_command({
-            "type": "create_cube",
-            "op_id": op_id,
-            "timeout": 0.03,
-            "params": {},
-        })
+        res = server.handle_command(
+            {
+                "type": "create_cube",
+                "op_id": op_id,
+                "timeout": 0.03,
+                "params": {},
+            }
+        )
 
     t = threading.Thread(target=run_cmd)
     t.start()
@@ -363,11 +385,13 @@ def test_server_started_timeout_becomes_uncertain(monkeypatch):
     assert res["kind"] == "timeout_uncertain"
     assert op_id in server.lifecycle.get_uncertain_ops()
 
-    dep_res = server.handle_command({
-        "type": "object_move",
-        "op_id": "op-blocked-write",
-        "params": {"delta_x": 1.0},
-    })
+    dep_res = server.handle_command(
+        {
+            "type": "object_move",
+            "op_id": "op-blocked-write",
+            "params": {"delta_x": 1.0},
+        }
+    )
     assert dep_res["status"] == "error"
     assert dep_res["kind"] == "uncertain_predecessor_blocked"
 

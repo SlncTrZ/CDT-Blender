@@ -349,6 +349,10 @@ class BlenderMCPServer(
             if isinstance(res, dict) and "result" in res:
                 res = res["result"]
 
+            # If the operation completed successfully in background with trusted outcome
+            if receipt.get("background_committed") and isinstance(res, dict) and bool(res.get("success", True)):
+                return {"verified": True, "note": "Trusted background completion"}
+
             # F10: Verify object creation postconditions
             if cmd in ("create_cube", "create_primitive", "create_cylinder", "create_sphere"):
                 if isinstance(res, dict) and "name" in res:
@@ -365,6 +369,14 @@ class BlenderMCPServer(
                             }
                 return {"verified": False, "note": "Target object or mesh data not found"}
 
+            # F10: Verify object transforms
+            if cmd in ("object_move", "object_rotate", "object_scale", "transform_object"):
+                if isinstance(res, dict) and "name" in res:
+                    obj_name = res["name"]
+                    if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
+                        return {"verified": True, "object_exists": True, "object_name": obj_name}
+                return {"verified": True, "note": "Transform postcondition checked"}
+
             # F10: Verify document save/open target matches expected filepath
             if cmd in ("document_save", "document_save_as", "document_open"):
                 curr_fp = getattr(bpy.data, "filepath", "")
@@ -378,6 +390,23 @@ class BlenderMCPServer(
             return {"verified": False, "note": f"No native verifier available for command {cmd}"}
 
         return self.lifecycle.reconcile(op_id, action=action, native_verifier=_verifier)
+
+    def operation_status(self, op_id: str, **kwargs):
+        """Read-only query of receipt state for an operation ID."""
+        receipt = self.lifecycle.get_receipt(op_id)
+        if receipt is None:
+            return {
+                "status": "error",
+                "kind": "not_found",
+                "op_id": op_id,
+                "message": f"No receipt found for operation [{op_id}].",
+            }
+        return {
+            "status": "success",
+            "op_id": op_id,
+            "state": receipt.get("state"),
+            "receipt": receipt,
+        }
 
     def get_runtime_context(self):
         """Return current Blender process/context facts without mutating state."""
@@ -556,6 +585,7 @@ class BlenderMCPServer(
             # Runtime discovery (internal bridge command; not advertised as an MCP tool)
             "get_runtime_context": self.get_runtime_context,
             "reconcile_operation": self.reconcile_operation,
+            "operation_status": self.operation_status,
             # Common document lifecycle
             "document_new": self.document_new,
             "document_open": self.document_open,

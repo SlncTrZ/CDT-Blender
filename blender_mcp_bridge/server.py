@@ -160,8 +160,10 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     rid = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
     transport = transport_var.get()
 
-    # Strip n8n-specific metadata
-    meta = {"sessionId", "action", "chatInput", "toolCallId", "id"}
+    # Strip n8n-specific metadata (preserve business arguments like 'action')
+    meta = {"sessionId", "chatInput", "toolCallId", "id"}
+    if name not in ("reconcile_operation", "operation_status"):
+        meta.add("action")
     clean_args = {k: v for k, v in arguments.items() if k not in meta}
 
     # Resolve + contain paths (fail closed before Blender is contacted)
@@ -195,7 +197,9 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
     if name in _PATH_GUARDED_TOOLS:
         clean_args["_allow_roots"] = _allow_roots()
 
-    logger.info(f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args} (op_id={op_id})")
+    logger.info(
+        f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args} (op_id={op_id})"
+    )
 
     local_result = _answer_locally(name, clean_args)
     if local_result is not None:

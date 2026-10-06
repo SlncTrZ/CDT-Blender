@@ -129,7 +129,8 @@ class MutationLifecycleManager:
                         "receipt": dict(receipt),
                     }
 
-                if state == ReceiptState.COMMITTED and not receipt.get("background_committed"):
+                # If operation is committed (even if completed late in background), return cached result!
+                if state == ReceiptState.COMMITTED:
                     return False, {
                         "status": "success",
                         "cached": True,
@@ -139,7 +140,8 @@ class MutationLifecycleManager:
                         "receipt": dict(receipt),
                     }
 
-                if state == ReceiptState.FAILED and not receipt.get("background_failed"):
+                # If operation failed (even if failed late in background), return cached failure!
+                if state == ReceiptState.FAILED:
                     return False, {
                         "status": "error",
                         "cached": True,

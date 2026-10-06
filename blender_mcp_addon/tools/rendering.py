@@ -74,7 +74,9 @@ class RenderingTools:
     def render_frame(self, output_path=None, _allow_roots=None):
         """Render current frame"""
         # F05: Contain effective render path even if output_path is omitted
-        effective_path = _resolve_output_path(output_path) if output_path else bpy.context.scene.render.filepath
+        effective_path = (
+            _resolve_output_path(output_path) if output_path else bpy.context.scene.render.filepath
+        )
         if not effective_path:
             return {"success": False, "error": "Render filepath is not set."}
         resolved = _resolve_output_path(effective_path)
@@ -90,7 +92,9 @@ class RenderingTools:
             "message": "Frame rendered",
         }
 
-    def render_animation(self, start_frame=None, end_frame=None, output_dir=None, _allow_roots=None):
+    def render_animation(
+        self, start_frame=None, end_frame=None, output_dir=None, _allow_roots=None
+    ):
         """Render animation"""
         scene = bpy.context.scene
 
