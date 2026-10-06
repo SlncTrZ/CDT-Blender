@@ -7,6 +7,9 @@ import socket
 import threading
 import time
 import traceback
+import uuid
+import time
+from .lifecycle import MutationLifecycleManager, ReceiptState
 
 import bpy  # type: ignore
 
@@ -30,6 +33,11 @@ MAX_REQUEST_BYTES = 1024 * 1024
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 REQUEST_RECEIVE_TIMEOUT_SECONDS = 5.0
 SOCKET_CHUNK_BYTES = 4096
+
+ADMISSION_QUEUE_MAXSIZE = 16
+MAX_COMMANDS_PER_TICK = 4
+
+COMMAND_WAIT_TIMEOUT_SECONDS = 60.0
 
 
 def _transport_error(kind, message, *, retryable=False):
@@ -63,9 +71,10 @@ class BlenderMCPServer(
         self.server_socket: socket.socket | None = None
         self.running = False
         self.server_thread = None
-        self.command_queue = queue.Queue()
+        self.command_queue = queue.Queue(maxsize=ADMISSION_QUEUE_MAXSIZE)
         self.last_error = None
         self.timer_handle = None
+        self.lifecycle = MutationLifecycleManager()
 
     def start_server(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
         if self.running:
@@ -106,6 +115,7 @@ class BlenderMCPServer(
         if bpy.app.timers.is_registered(self.timer_handle):
             bpy.app.timers.unregister(self.timer_handle)
         self.timer_handle = None
+        self.lifecycle = MutationLifecycleManager()
 
     def stop_server(self):
         self.running = False
@@ -245,13 +255,109 @@ class BlenderMCPServer(
     def handle_command(self, command):
         if not self.running:
             return {"status": "error", "message": "Server not running"}
-        result_event, res_container = threading.Event(), {"result": None}
-        self.command_queue.put(
-            {"command": command, "event": result_event, "container": res_container}
+
+        op_id = str(command.get("op_id") or command.get("request_id") or uuid.uuid4())
+        command["op_id"] = op_id
+        command["request_id"] = op_id
+        cmd_type = command.get("type", "")
+
+        # BL-01 idempotency & uncertain predecessor check
+        admission_rejection = self.lifecycle.check_admission(cmd_type, op_id)
+        if admission_rejection is not None:
+            return admission_rejection
+
+        # BL-02 deadline tracking
+        timeout = float(
+            command.get("timeout")
+            or command.get("timeout_seconds")
+            or COMMAND_WAIT_TIMEOUT_SECONDS
         )
-        if not result_event.wait(timeout=60.0):
-            return {"status": "error", "message": "Command timed out"}
+        deadline = time.monotonic() + timeout
+        command["deadline"] = deadline
+
+        result_event = threading.Event()
+        res_container = {"result": None, "op_id": op_id, "dispatched": False}
+
+        self.lifecycle.record_pending(op_id, cmd_type, command.get("params", {}), deadline)
+
+        try:
+            self.command_queue.put_nowait(
+                {
+                    "command": command,
+                    "event": result_event,
+                    "container": res_container,
+                    "op_id": op_id,
+                    "deadline": deadline,
+                    "cmd_type": cmd_type,
+                }
+            )
+        except queue.Full:
+            self.lifecycle.record_failed(op_id, "Admission queue full")
+            return {
+                "status": "error",
+                "kind": "rate_limited",
+                "retryable": True,
+                "op_id": op_id,
+                "message": "Admission queue full. Backlog must drain; no work was enqueued.",
+            }
+
+        # Caller wait bound
+        signaled = result_event.wait(timeout=timeout)
+        if not signaled:
+            # BL-02: started past deadline becomes uncertain; pending past deadline expired
+            if res_container.get("dispatched"):
+                self.lifecycle.record_uncertain(
+                    op_id,
+                    reason=f"Command '{cmd_type}' started execution but exceeded caller deadline of {timeout}s",
+                    cmd_type=cmd_type,
+                )
+                return {
+                    "status": "error",
+                    "kind": "timeout_uncertain",
+                    "retryable": True,
+                    "op_id": op_id,
+                    "message": (
+                        f"Command '{cmd_type}' [{op_id}] timed out after {timeout}s while executing in Blender. "
+                        "Operation state is uncertain; side effects may have occurred. "
+                        "Call reconcile_operation before retrying."
+                    ),
+                    "receipt": self.lifecycle.get_receipt(op_id),
+                }
+            else:
+                self.lifecycle.record_expired_pending(
+                    op_id,
+                    reason=f"Command '{cmd_type}' timed out while pending in admission queue",
+                )
+                return {
+                    "status": "error",
+                    "kind": "expired_pending",
+                    "retryable": True,
+                    "op_id": op_id,
+                    "message": (
+                        f"Command '{cmd_type}' [{op_id}] timed out after {timeout}s while pending in admission queue. "
+                        "Execution was not started."
+                    ),
+                    "receipt": self.lifecycle.get_receipt(op_id),
+                }
+
         return res_container["result"]
+
+    def reconcile_operation(self, op_id: str, action: str = "query", **kwargs):
+        """Reconcile receipt state of an operation, optionally verifying native Blender state."""
+        def _verifier(receipt):
+            cmd = receipt.get("cmd_type", "")
+            res = receipt.get("result")
+            if isinstance(res, dict) and "result" in res:
+                res = res["result"]
+            if isinstance(res, dict) and "name" in res:
+                obj_name = res["name"]
+                if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
+                    return {"verified": True, "object_exists": True, "object_name": obj_name}
+            if cmd in ("document_new", "document_open", "document_save"):
+                return {"verified": True, "filepath": getattr(bpy.data, "filepath", "")}
+            return {"verified": False, "note": "No native verifier available for command"}
+
+        return self.lifecycle.reconcile(op_id, action=action, native_verifier=_verifier)
 
     def get_runtime_context(self):
         """Return current Blender process/context facts without mutating state."""
@@ -311,16 +417,49 @@ class BlenderMCPServer(
             return None
         try:
             # self.addon_log("Timer tick check queue...")
-            while not self.command_queue.empty():
+            for _ in range(MAX_COMMANDS_PER_TICK):
                 try:
                     item = self.command_queue.get_nowait()
                     if not item:
                         continue
                     cmd, event, res = item["command"], item["event"], item["container"]
+                    op_id = item.get("op_id") or cmd.get("op_id", "unknown")
+                    deadline = item.get("deadline")
                     cmd_type = cmd.get("type", "")
-                    self.addon_log(f"Processing command: {cmd_type}")
+
+                    # BL-02: Expired pending work never starts!
+                    now = time.monotonic()
+                    if deadline and now >= deadline:
+                        self.lifecycle.record_expired_pending(
+                            op_id,
+                            f"Expired while pending in queue before dispatch ({now:.3f} >= {deadline:.3f})",
+                        )
+                        res["result"] = {
+                            "status": "error",
+                            "kind": "expired_pending",
+                            "retryable": True,
+                            "op_id": op_id,
+                            "message": f"Command '{cmd_type}' [{op_id}] expired before dispatch; not started.",
+                            "receipt": self.lifecycle.get_receipt(op_id),
+                        }
+                        event.set()
+                        continue
+
+                    # Mark in-flight / dispatched
+                    res["dispatched"] = True
+                    self.lifecycle.record_in_flight(op_id)
+                    self.addon_log(f"Processing command: {cmd_type} [{op_id}]")
                     try:
-                        res["result"] = self.execute_command(cmd)
+                        exec_res = self.execute_command(cmd)
+                        res["result"] = exec_res
+                        if isinstance(exec_res, dict) and exec_res.get("status") == "error":
+                            self.lifecycle.record_failed(
+                                op_id,
+                                exec_res.get("message", "Error"),
+                                result=exec_res,
+                            )
+                        else:
+                            self.lifecycle.record_committed(op_id, exec_res)
                         self.addon_log(f"Command {cmd_type} executed successfully")
 
                         # Push to Undo Stack if it's a state-changing command
@@ -348,6 +487,7 @@ class BlenderMCPServer(
                     except Exception as e:
                         traceback.print_exc()
                         self.addon_log(f"Execution error on {cmd_type}: {e}")
+                        self.lifecycle.record_failed(op_id, str(e))
                         res["result"] = {
                             "status": "error",
                             "message": f"Execution error: {e}",
@@ -355,6 +495,8 @@ class BlenderMCPServer(
                     finally:
                         event.set()
                         self.addon_log(f"Signaled event for {cmd_type}")
+                except queue.Empty:
+                    break
                 except Exception as e:
                     self.addon_log(f"Queue item processing error: {e}")
                     traceback.print_exc()
@@ -378,6 +520,7 @@ class BlenderMCPServer(
         methods = {
             # Runtime discovery (internal bridge command; not advertised as an MCP tool)
             "get_runtime_context": self.get_runtime_context,
+            "reconcile_operation": self.reconcile_operation,
             # Common document lifecycle
             "document_new": self.document_new,
             "document_open": self.document_open,
