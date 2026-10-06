@@ -85,7 +85,7 @@ def _get_server():
         sys.modules[mod.__name__] = mod
 
     modeling = types.ModuleType("blender_mcp_addon.tools.modeling")
-    modeling.ModelingTools = type("ModelingTools", (), {})
+    setattr(modeling, "ModelingTools", type("ModelingTools", (), {}))  # noqa: B010
     sys.modules[modeling.__name__] = modeling
 
     spec = importlib.util.spec_from_file_location("blender_mcp_addon.server", SERVER_PATH)

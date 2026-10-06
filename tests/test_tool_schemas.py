@@ -141,7 +141,7 @@ def test_declared_default_matches_its_type(tool_name, prop_name, schema):
         "array": list,
         "object": dict,
     }.get(declared)
-    if expected is None:
+    if expected is None or not isinstance(expected, tuple | type):
         return
     # bool is a subclass of int in Python; a boolean default on a number field
     # is a mistake, so reject it explicitly rather than letting isinstance pass.

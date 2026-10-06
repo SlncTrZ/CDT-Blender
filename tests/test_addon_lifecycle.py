@@ -134,12 +134,12 @@ def _load_server_module(monkeypatch):
         monkeypatch.setitem(sys.modules, module.__name__, module)
 
     modeling = types.ModuleType("blender_mcp_addon.tools.modeling")
-    modeling.ModelingTools = type("ModelingTools", (), {})
+    setattr(modeling, "ModelingTools", type("ModelingTools", (), {}))  # noqa: B010
     monkeypatch.setitem(sys.modules, modeling.__name__, modeling)
 
     utils = types.ModuleType("blender_mcp_addon.utils")
-    utils.DEFAULT_HOST = "127.0.0.1"
-    utils.DEFAULT_PORT = 8888
+    setattr(utils, "DEFAULT_HOST", "127.0.0.1")  # noqa: B010
+    setattr(utils, "DEFAULT_PORT", 8888)  # noqa: B010
     monkeypatch.setitem(sys.modules, utils.__name__, utils)
 
     spec = importlib.util.spec_from_file_location("blender_mcp_addon.server", SERVER_PATH)
@@ -160,11 +160,11 @@ def _load_addon_module(monkeypatch):
     monkeypatch.setitem(sys.modules, "bpy", bpy)
 
     server = types.ModuleType("blender_mcp_addon.server")
-    server.BlenderMCPServer = type("BlenderMCPServer", (), {})
+    setattr(server, "BlenderMCPServer", type("BlenderMCPServer", (), {}))  # noqa: B010
     monkeypatch.setitem(sys.modules, server.__name__, server)
 
     utils = types.ModuleType("blender_mcp_addon.utils")
-    utils.DEFAULT_PORT = 8888
+    setattr(utils, "DEFAULT_PORT", 8888)  # noqa: B010
     monkeypatch.setitem(sys.modules, utils.__name__, utils)
 
     spec = importlib.util.spec_from_file_location(
@@ -195,7 +195,7 @@ def test_start_operator_reports_bind_failure_truthfully(monkeypatch):
         def start_server(self):
             return {"ok": False, "state": "stopped", "error": self.last_error}
 
-    module._server_instance = FailingServer()
+    setattr(module, "_server_instance", FailingServer())  # noqa: B010
     operator = module.BLENDERMCP_OT_StartServer()
 
     result = operator.execute(None)
@@ -276,6 +276,7 @@ def test_repeated_stop_is_idempotent(monkeypatch, repeat):
     module, _timers = _load_server_module(monkeypatch)
     server = module.BlenderMCPServer()
 
+    result = None
     for _ in range(repeat + 1):
         result = server.stop_server()
 
@@ -320,13 +321,15 @@ def test_addon_transport_reassembles_fragmented_json_request(monkeypatch):
     module, _timers = _load_server_module(monkeypatch)
     server = module.BlenderMCPServer()
     received = []
-    server.handle_command = lambda command: (
+
+    def mock_handle_command(command):
         received.append(command)
-        or {
+        return {
             "status": "success",
             "result": {"ok": True},
         }
-    )
+
+    server.handle_command = mock_handle_command
     client = ScriptedClient(
         [b'{"type":"get_runtime_', b'context","params":{},"request_id":"frag"}']
     )
