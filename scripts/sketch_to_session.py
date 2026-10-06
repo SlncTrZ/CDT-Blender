@@ -72,10 +72,10 @@ def _chord_dev(pts, i, j):
     ax, ay = pts[i]
     bx, by = pts[j]
     dx, dy = bx - ax, by - ay
-    L = math.hypot(dx, dy)
-    if L < 1e-12:
+    length = math.hypot(dx, dy)
+    if length < 1e-12:
         return max(math.hypot(p[0] - ax, p[1] - ay) for p in pts[i : j + 1])
-    return max(abs((p[0] - ax) * dy - (p[1] - ay) * dx) / L for p in pts[i : j + 1])
+    return max(abs((p[0] - ax) * dy - (p[1] - ay) * dx) / length for p in pts[i : j + 1])
 
 
 def _kasa_fit(pts):
@@ -163,6 +163,24 @@ def densify(poly, max_step=0.5, closed=True):
     return out
 
 
+def _max_window(pts, i, ok):
+    """Largest j >= i+1 such that ok(i, j) holds (exponential + binary search)."""
+    n = len(pts)
+    j = i + 1
+    step = 4
+    while j < n - 1 and ok(i, min(j + step, n - 1)):
+        j = min(j + step, n - 1)
+        step *= 2
+    lo, hi = j, min(j + step, n - 1)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if ok(i, mid):
+            lo = mid
+        else:
+            hi = mid - 1
+    return lo
+
+
 def fit_segments(poly, tol=0.15, closed=True):
     """Greedy maximal line/arc fitting over a dense polyline.
 
@@ -185,22 +203,6 @@ def fit_segments(poly, tol=0.15, closed=True):
             )
         pending_line = []
 
-    def max_window(i, ok):
-        """Largest j >= i+1 such that ok(i, j) holds (exponential + binary search)."""
-        j = i + 1
-        step = 4
-        while j < n - 1 and ok(i, min(j + step, n - 1)):
-            j = min(j + step, n - 1)
-            step *= 2
-        lo, hi = j, min(j + step, n - 1)
-        while lo < hi:
-            mid = (lo + hi + 1) // 2
-            if ok(i, mid):
-                lo = mid
-            else:
-                hi = mid - 1
-        return lo
-
     def line_ok(i, j):
         return _chord_dev(pts, i, j) <= tol
 
@@ -209,8 +211,8 @@ def fit_segments(poly, tol=0.15, closed=True):
 
     i = 0
     while i < n - 1:
-        j_line = max_window(i, line_ok)
-        j_any = max_window(i, arc_ok)
+        j_line = _max_window(pts, i, line_ok)
+        j_any = _max_window(pts, i, arc_ok)
         # only accept an arc when it reaches meaningfully further than the
         # best straight line — otherwise huge-radius arcs eat straight edges
         if j_any - i > 1.3 * (j_line - i) + 2:
@@ -252,41 +254,56 @@ def point_in_poly(pt, poly):
     return inside
 
 
+def _curve_loops(obj, close_tol, samples_per_seg):
+    """Closed loops (dense polylines) sampled from one CURVE object."""
+    loops, skipped = [], []
+    for sp in obj["splines"]:
+        poly, cyclic = sample_spline(sp, samples_per_seg)
+        poly = dedupe(poly)
+        if len(poly) < 3:
+            continue
+        if not cyclic:
+            gap = math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1])
+            if gap <= close_tol:
+                cyclic = True
+        if cyclic:
+            if math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1]) < 1e-6:
+                poly = poly[:-1]
+            loops.append({"name": obj["name"], "poly": poly})
+        else:
+            skipped.append(obj["name"])
+    return loops, skipped
+
+
+def _grease_loops(obj, close_tol):
+    """Closed loops (dense polylines) sampled from one GREASE_PENCIL object."""
+    loops, skipped = [], []
+    for layer in obj["layers"]:
+        for si, st in enumerate(layer["strokes"]):
+            poly = dedupe([(p[0], p[1]) for p in st["points"]])
+            if len(poly) < 3:
+                continue
+            gap = math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1])
+            name = f"{obj['name']}_{layer['layer']}_{si}"
+            if gap <= close_tol:
+                loops.append({"name": name, "poly": poly})
+            else:
+                skipped.append(name)
+    return loops, skipped
+
+
 def collect_loops(extract, close_tol=1.0, samples_per_seg=32):
     """All closed loops (dense polylines) from an extract_sketch payload."""
     loops, skipped = [], []
     for obj in extract.get("objects", extract if isinstance(extract, list) else []):
         if obj["type"] == "CURVE":
-            sources = [(obj["name"], sp) for sp in obj["splines"]]
-            for name, sp in sources:
-                poly, cyclic = sample_spline(sp, samples_per_seg)
-                poly = dedupe(poly)
-                if len(poly) < 3:
-                    continue
-                if not cyclic:
-                    gap = math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1])
-                    if gap <= close_tol:
-                        cyclic = True
-                        if gap > 1e-6:
-                            poly = poly[:-1] if gap < 1e-6 else poly
-                if cyclic:
-                    if math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1]) < 1e-6:
-                        poly = poly[:-1]
-                    loops.append({"name": name, "poly": poly})
-                else:
-                    skipped.append(name)
+            found, missed = _curve_loops(obj, close_tol, samples_per_seg)
         elif obj["type"] == "GREASE_PENCIL":
-            for layer in obj["layers"]:
-                for si, st in enumerate(layer["strokes"]):
-                    poly = dedupe([(p[0], p[1]) for p in st["points"]])
-                    if len(poly) < 3:
-                        continue
-                    gap = math.hypot(poly[0][0] - poly[-1][0], poly[0][1] - poly[-1][1])
-                    name = f"{obj['name']}_{layer['layer']}_{si}"
-                    if gap <= close_tol:
-                        loops.append({"name": name, "poly": poly})
-                    else:
-                        skipped.append(name)
+            found, missed = _grease_loops(obj, close_tol)
+        else:
+            continue
+        loops.extend(found)
+        skipped.extend(missed)
     return loops, skipped
 
 

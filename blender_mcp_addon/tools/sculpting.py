@@ -48,17 +48,19 @@ class SculptingTools:
                 "error": "Must be in Sculpt Mode to configure Dyntopo. Call enter_sculpt_mode first.",
             }
 
-        sculpt = bpy.context.scene.tool_settings.sculpt
-        currently_enabled = sculpt.use_dyntopo
+        obj = bpy.context.active_object
+        currently_enabled = getattr(obj, 'use_dynamic_topology_sculpting', False)
 
         if enabled and not currently_enabled:
             bpy.ops.sculpt.dynamic_topology_toggle()
         elif not enabled and currently_enabled:
             bpy.ops.sculpt.dynamic_topology_toggle()
 
-        sculpt.detail_size = detail_size
-        sculpt.detail_range = detail_range
-        sculpt.detail_type_method = "CONSTANT" if constant_detail else "RELATIVE"
+        sculpt = bpy.context.scene.tool_settings.sculpt
+        if hasattr(sculpt, 'detail_size'):
+            sculpt.detail_size = detail_size
+        if hasattr(sculpt, 'detail_type_method'):
+            sculpt.detail_type_method = "CONSTANT" if constant_detail else "RELATIVE"
 
         return {
             "success": True,
