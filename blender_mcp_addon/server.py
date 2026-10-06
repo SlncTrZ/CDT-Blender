@@ -484,42 +484,17 @@ class BlenderMCPServer(
                     deadline = item.get("deadline")
                     cmd_type = cmd.get("type", "")
 
-                    # BL-02: Expired pending work never starts!
-                    now = time.monotonic()
-                    if deadline and now >= deadline:
-                        self.lifecycle.record_expired_pending(
-                            op_id,
-                            f"Expired while pending in queue before dispatch ({now:.3f} >= {deadline:.3f})",
-                        )
-                        res["result"] = {
-                            "status": "error",
-                            "kind": "expired_pending",
-                            "retryable": True,
-                            "op_id": op_id,
-                            "message": f"Command '{cmd_type}' [{op_id}] expired before dispatch; not started.",
-                            "receipt": self.lifecycle.get_receipt(op_id),
-                        }
-                        event.set()
-                        continue
-
-                    # F03: Check predecessor uncertainty before dispatching queued mutation
-                    can_dispatch, predecessor_block = self.lifecycle.can_dispatch_queued(
-                        op_id, cmd_type
+                    # H05: Atomic transition PENDING -> IN_FLIGHT (checks deadline and predecessor uncertainty)
+                    can_execute, start_rejection = self.lifecycle.try_start_dispatch(
+                        op_id, cmd_type, deadline
                     )
-                    if not can_dispatch and predecessor_block is not None:
-                        self.lifecycle.record_failed(
-                            op_id,
-                            predecessor_block.get(
-                                "message", "Predecessor became uncertain while queued"
-                            ),
-                        )
-                        res["result"] = predecessor_block
+                    if not can_execute:
+                        res["result"] = start_rejection
                         event.set()
                         continue
 
-                    # Mark in-flight / dispatched
+                    # Mark dispatched in caller container
                     res["dispatched"] = True
-                    self.lifecycle.record_in_flight(op_id)
                     self.addon_log(f"Processing command: {cmd_type} [{op_id}]")
                     try:
                         exec_res = self.execute_command(cmd)

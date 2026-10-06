@@ -255,17 +255,32 @@ class SculptingTools:
         # Map our direction string to Blender sculpt symmetry settings
         # (Blender 5.0 removed the 'direction' kwarg from sculpt.symmetrize)
         sculpt = bpy.context.scene.tool_settings.sculpt
-        # Save original mirror flags
+        # Save original mirror flags and direction
         orig_x = sculpt.use_symmetry_x
         orig_y = sculpt.use_symmetry_y
         orig_z = sculpt.use_symmetry_z
+        orig_dir = getattr(sculpt, "symmetrize_direction", None)
 
         # Enable the appropriate axis mirror based on direction
         sculpt.use_symmetry_x = direction in ("POSITIVE_X", "NEGATIVE_X")
         sculpt.use_symmetry_y = direction in ("POSITIVE_Y", "NEGATIVE_Y")
         sculpt.use_symmetry_z = direction in ("POSITIVE_Z", "NEGATIVE_Z")
 
+        # H10: Set explicit signed symmetrize_direction on Blender 4.5 tool_settings.sculpt
+        if hasattr(sculpt, "symmetrize_direction") and direction in (
+            "POSITIVE_X", "NEGATIVE_X", "POSITIVE_Y", "NEGATIVE_Y", "POSITIVE_Z", "NEGATIVE_Z"
+        ):
+            sculpt.symmetrize_direction = direction
+
         try:
+            # Blender's sculpt.symmetrize operator requires an active 3D Viewport window/region;
+            # in background mode (headless), calling it causes an unhandled access violation in blender.exe.
+            if getattr(bpy.app, "background", False):
+                return {
+                    "success": False,
+                    "error": "sculpt.symmetrize requires an active 3D Viewport context (unavailable in background mode).",
+                }
+
             bpy.ops.object.mode_set(mode="SCULPT")
             try:
                 bpy.ops.sculpt.symmetrize()
@@ -277,10 +292,12 @@ class SculptingTools:
                 bpy.ops.object.mode_set(mode="OBJECT")
             except Exception:
                 pass
-            # Restore original symmetry flags
+            # Restore original symmetry flags and direction
             sculpt.use_symmetry_x = orig_x
             sculpt.use_symmetry_y = orig_y
             sculpt.use_symmetry_z = orig_z
+            if orig_dir is not None and hasattr(sculpt, "symmetrize_direction"):
+                sculpt.symmetrize_direction = orig_dir
             try:
                 bpy.context.view_layer.objects.active = original_active
             except Exception:

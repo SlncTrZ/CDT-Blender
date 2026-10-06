@@ -63,15 +63,22 @@ def serve(host, port, record_path, name, model, description, doc_url):
     import blender_mcp_bridge.server as server_mod
 
     # CDT fork: fail closed. Network transport without BLENDER_MCP_TOKEN is
-    # refused unless MCP_ALLOW_UNAUTHENTICATED=1 (local loopback testing only).
-    if (
-        not os.getenv("BLENDER_MCP_TOKEN", "").strip()
-        and os.getenv("MCP_ALLOW_UNAUTHENTICATED") != "1"
-    ):
-        raise click.ClickException(
-            "Refusing to serve without BLENDER_MCP_TOKEN. Set BLENDER_MCP_TOKEN "
-            "(recommended) or MCP_ALLOW_UNAUTHENTICATED=1 for local loopback testing only."
-        )
+    # refused unless MCP_ALLOW_UNAUTHENTICATED=1 (strictly local loopback testing only).
+    # H13: Unauthenticated mode is strictly forbidden on non-loopback interfaces!
+    token = os.getenv("BLENDER_MCP_TOKEN", "").strip()
+    is_loopback = host in ("127.0.0.1", "localhost", "::1")
+    if not token:
+        if os.getenv("MCP_ALLOW_UNAUTHENTICATED") == "1":
+            if not is_loopback:
+                raise click.ClickException(
+                    f"Refusing unauthenticated serve on non-loopback interface '{host}'. "
+                    "MCP_ALLOW_UNAUTHENTICATED=1 is strictly permitted on loopback (127.0.0.1 / localhost) only."
+                )
+        else:
+            raise click.ClickException(
+                "Refusing to serve without BLENDER_MCP_TOKEN. Set BLENDER_MCP_TOKEN "
+                "(recommended) or MCP_ALLOW_UNAUTHENTICATED=1 for local loopback testing only."
+            )
 
     if record_path:
         metadata = SessionMetadata(

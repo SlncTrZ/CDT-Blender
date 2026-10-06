@@ -243,6 +243,72 @@ class MutationLifecycleManager:
             self._trim_receipts()
             return True, None
 
+    def try_start_dispatch(
+        self, op_id: str, cmd_type: str, deadline: float | None
+    ) -> tuple[bool, dict[str, Any] | None]:
+        """H05: Atomically transition an admitted command from PENDING -> IN_FLIGHT.
+
+        Checks:
+        1. Deadline check: if now >= deadline, transitions atomically to EXPIRED_PENDING.
+        2. Own state: must be PENDING (cannot restart terminal, uncertain, or already in-flight).
+        3. Predecessor uncertainty: if any predecessor is UNCERTAIN, transitions to FAILED
+           with kind 'uncertain_predecessor_blocked'.
+
+        Returns:
+            (can_execute, error_response)
+        """
+        now = time.monotonic()
+        with self._lock:
+            # 1. Deadline check before start
+            if deadline and now >= deadline:
+                self._pending_ops.discard(op_id)
+                self._in_flight.pop(op_id, None)
+                receipt = self._receipts.get(op_id, {"op_id": op_id})
+                receipt["state"] = ReceiptState.EXPIRED_PENDING
+                receipt["expired_at"] = now
+                receipt["reason"] = f"Expired while pending in queue before dispatch ({now:.3f} >= {deadline:.3f})"
+                self._receipts[op_id] = receipt
+                return False, {
+                    "status": "error",
+                    "kind": "expired_pending",
+                    "retryable": True,
+                    "op_id": op_id,
+                    "message": f"Command '{cmd_type}' [{op_id}] expired before dispatch; not started.",
+                    "receipt": dict(receipt),
+                }
+
+            # 2. Check predecessor uncertainty
+            if self.is_mutation(cmd_type) and cmd_type != "reconcile_operation":
+                other_uncertain = [u for u in self._uncertain_ops if u != op_id]
+                if other_uncertain:
+                    self._pending_ops.discard(op_id)
+                    receipt = self._receipts.get(op_id, {"op_id": op_id})
+                    receipt["state"] = ReceiptState.FAILED
+                    receipt["message"] = (
+                        f"Predecessor operation(s) {sorted(other_uncertain)} entered uncertain state while queued"
+                    )
+                    receipt["finished_at"] = now
+                    return False, {
+                        "status": "error",
+                        "kind": "uncertain_predecessor_blocked",
+                        "retryable": False,
+                        "op_id": op_id,
+                        "message": (
+                            f"Dependent write blocked at dispatch: predecessor operation(s) {sorted(other_uncertain)} "
+                            "entered uncertain state while this command was queued."
+                        ),
+                        "uncertain_operations": sorted(other_uncertain),
+                    }
+
+            # 3. Transition atomically to IN_FLIGHT
+            self._pending_ops.discard(op_id)
+            self._in_flight[op_id] = now
+            if op_id in self._receipts:
+                self._receipts[op_id]["state"] = ReceiptState.IN_FLIGHT
+                self._receipts[op_id]["started_at"] = now
+
+            return True, None
+
     def rollback_reservation(self, op_id: str, reason: str = "Admission rejected"):
         """Rollback a pending reservation if enqueuing fails (e.g. queue full).
 

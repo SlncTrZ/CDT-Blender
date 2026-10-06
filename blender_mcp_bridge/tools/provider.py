@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import socket
+import time
 from typing import Any
 
 from mcp import types
@@ -109,7 +110,10 @@ def _runtime_context_snapshot() -> dict[str, Any]:
             "reason": "addon_unreachable",
         }
 
-    response = blender.send_command("get_runtime_context", {}, rid="SYSCTX", timeout_seconds=2.0)
+    # H06: Generate a distinct request ID so context queries are never cached as a static mutation ID
+    response = blender.send_command(
+        "get_runtime_context", {}, rid=f"SYSCTX-{time.time_ns()}", timeout_seconds=2.0
+    )
     if (
         not isinstance(response, dict)
         or response.get("status") != "success"
