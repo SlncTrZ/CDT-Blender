@@ -13,6 +13,12 @@ MAX_REQUEST_BYTES = 1024 * 1024
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 SOCKET_CHUNK_BYTES = 4096
 
+# Bridge transport deadline. Must stay ABOVE the addon COMMAND_WAIT_TIMEOUT
+# (60s) so the addon's typed timeout/error arrives instead of being masked as
+# a transport timeout. Neither timeout cancels Blender-side work — a timeout is
+# NOT proof of cancellation; re-query state before retrying a mutation.
+BLENDER_TRANSPORT_TIMEOUT_SECONDS = 120.0
+
 
 def _connection_error(kind, message, *, retryable=False):
     return {
@@ -46,7 +52,7 @@ class BlenderConnection:
         return bytes(data)
 
     def send_command(
-        self, command_type, params=None, rid="unknown", timeout_seconds: float = 120.0
+        self, command_type, params=None, rid="unknown", timeout_seconds: float = BLENDER_TRANSPORT_TIMEOUT_SECONDS
     ):
         """Send a command to Blender under one bounded connect/receive deadline."""
         if timeout_seconds <= 0:

@@ -6,7 +6,7 @@ import addon_utils  # type: ignore
 import bmesh  # type: ignore
 import bpy  # type: ignore
 
-from ..utils import get_object
+from ..utils import OutsideAllowRoots, get_object, require_allowed
 
 
 class PrintingTools:
@@ -174,7 +174,9 @@ class PrintingTools:
             "check_after_remesh": check_report,
         }
 
-    def export_model(self, object_name=None, filepath=None, format="STL", selection_only=True):
+    def export_model(
+        self, object_name=None, filepath=None, format="STL", selection_only=True, _allow_roots=None
+    ):
         """Export object(s) to STL or 3MF format. Relative paths are resolved against BLENDER_ASSETS_DIR."""
         if not filepath:
             name_to_use = object_name if object_name else "scene_export"
@@ -188,6 +190,11 @@ class PrintingTools:
                 filepath = os.path.join(assets_dir, filepath)
             else:
                 filepath = os.path.abspath(filepath)
+
+        try:
+            require_allowed(filepath, _allow_roots)
+        except OutsideAllowRoots as exc:
+            return {"success": False, "error": str(exc)}
 
         # Ensure directory path exists
         dirpath = os.path.dirname(filepath)
@@ -265,7 +272,7 @@ class PrintingTools:
             "message": f"Successfully exported to '{filepath}'.",
         }
 
-    def import_model(self, filepath):
+    def import_model(self, filepath, _allow_roots=None):
         """Import a 3D model file (STL, OBJ, or FBX) into the scene and keep it."""
         import os
 
@@ -281,6 +288,11 @@ class PrintingTools:
             else:
                 # Try relative to workspace/current dir
                 filepath = os.path.abspath(filepath)
+
+        try:
+            require_allowed(filepath, _allow_roots)
+        except OutsideAllowRoots as exc:
+            return {"success": False, "error": str(exc)}
 
         if not os.path.exists(filepath):
             return {"success": False, "error": f"File not found: {filepath}"}

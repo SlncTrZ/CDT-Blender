@@ -9,27 +9,11 @@ from typing import Any
 
 import bpy  # type: ignore
 
+from ..utils import _path_is_allowed
+
 
 def _error(kind: str, message: str, retryable: bool = False) -> dict[str, Any]:
     return {"status": "error", "kind": kind, "retryable": retryable, "message": message}
-
-
-def _canonical(path: str) -> str:
-    return os.path.normcase(os.path.realpath(os.path.abspath(path)))
-
-
-def _path_is_allowed(path: str, allow_roots: list[str] | None) -> bool:
-    if not allow_roots:
-        return False
-    needle = _canonical(path)
-    for root in allow_roots:
-        canonical_root = _canonical(root)
-        try:
-            if os.path.commonpath([needle, canonical_root]) == canonical_root:
-                return True
-        except ValueError:
-            continue
-    return False
 
 
 class DocumentTools:

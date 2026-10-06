@@ -46,12 +46,36 @@ class PathContainmentError(ValueError):
 
 def _allow_roots() -> list[str]:
     roots = settings.allow_roots or ([ASSETS_DIR] if ASSETS_DIR else [os.getcwd()])
-    return [os.path.normcase(os.path.abspath(root)) for root in roots]
+    # realpath (not just abspath): a symlink/junction inside roots pointing
+    # outside must not bypass containment. Matches addon utils._canonical.
+    return [os.path.normcase(os.path.realpath(os.path.abspath(root))) for root in roots]
 
 
 def _contained(path: str) -> bool:
-    needle = os.path.normcase(os.path.abspath(path))
+    needle = os.path.normcase(os.path.realpath(os.path.abspath(path)))
     return any(needle == root or needle.startswith(root + os.sep) for root in _allow_roots())
+
+
+# Tools whose addon handler accepts _allow_roots and enforces it fail-closed.
+# Render/output keys (output_path/output_dir/filepath) are NOT rewritten here:
+# relative paths resolve against the Blender process CWD/assets dir, which the
+# bridge cannot judge correctly — the addon is the enforcement point.
+_PATH_GUARDED_TOOLS = frozenset(
+    {
+        "document_open",
+        "document_save",
+        "document_save_as",
+        "configure_render_settings",
+        "render_frame",
+        "render_animation",
+        "generate_views",
+        "get_viewport_screenshot",
+        "export_model",
+        "import_model",
+        "export_fbx",
+        "export_gltf",
+    }
+)
 
 
 def resolve_path(args):
@@ -157,7 +181,7 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             )
         ]
 
-    if name in {"document_open", "document_save", "document_save_as"}:
+    if name in _PATH_GUARDED_TOOLS:
         clean_args["_allow_roots"] = _allow_roots()
 
     logger.info(f"[{transport}] [{rid}] Tool Call: {name} with params: {clean_args}")

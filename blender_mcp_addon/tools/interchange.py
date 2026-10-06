@@ -11,17 +11,23 @@ import os
 
 import bpy  # type: ignore
 
+from ..utils import OutsideAllowRoots, require_allowed
+
 
 class InterchangeTools:
     """FBX / glTF export handlers."""
 
-    def _checked_path(self, filepath, wanted_exts):
+    def _checked_path(self, filepath, wanted_exts, _allow_roots=None):
         if not isinstance(filepath, str) or not filepath.strip():
             return None, "filepath must be a non-empty string."
         ext = os.path.splitext(filepath)[1].lower()
         if ext not in wanted_exts:
             return None, f"filepath must end with one of {sorted(wanted_exts)} (got '{ext}')."
-        directory = os.path.dirname(os.path.abspath(filepath))
+        try:
+            resolved = require_allowed(filepath, _allow_roots)
+        except OutsideAllowRoots as exc:
+            return None, str(exc)
+        directory = os.path.dirname(resolved)
         try:
             os.makedirs(directory, exist_ok=True)
         except Exception as e:
@@ -34,9 +40,10 @@ class InterchangeTools:
         export_selected=False,
         apply_scale="FBX_SCALE_UNITS",
         bake_space_transform=False,
+        _allow_roots=None,
     ):
         """Export scene/selection to FBX (Blender-native axes; convert on UE5 import)."""
-        path, error = self._checked_path(filepath, {".fbx"})
+        path, error = self._checked_path(filepath, {".fbx"}, _allow_roots)
         if error:
             return {"status": "error", "message": error}
         try:
@@ -58,9 +65,9 @@ class InterchangeTools:
             "message": f"Exported FBX to '{path}'.",
         }
 
-    def export_gltf(self, filepath, export_selected=False, export_materials="EXPORT"):
+    def export_gltf(self, filepath, export_selected=False, export_materials="EXPORT", _allow_roots=None):
         """Export scene/selection to glTF 2.0 (.glb/.gltf)."""
-        path, error = self._checked_path(filepath, {".glb", ".gltf"})
+        path, error = self._checked_path(filepath, {".glb", ".gltf"}, _allow_roots)
         if error:
             return {"status": "error", "message": error}
         try:

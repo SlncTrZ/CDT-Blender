@@ -5,6 +5,17 @@ import os
 import bpy  # type: ignore
 from mathutils import Vector  # type: ignore
 
+from ..utils import OutsideAllowRoots, require_allowed
+
+
+def _refusal(path, allow_roots):
+    """Containment refusal message for a resolved output path, or None when allowed."""
+    try:
+        require_allowed(path, allow_roots)
+    except OutsideAllowRoots as exc:
+        return str(exc)
+    return None
+
 
 def _resolve_output_path(path):
     """Resolve relative render paths against BLENDER_ASSETS_DIR, like export_model.
@@ -28,6 +39,7 @@ class RenderingTools:
         resolution_x=None,
         resolution_y=None,
         output_path=None,
+        _allow_roots=None,
     ):
         """Configure render settings"""
         scene = bpy.context.scene
@@ -44,7 +56,10 @@ class RenderingTools:
         if resolution_y:
             scene.render.resolution_y = resolution_y
         if output_path:
-            scene.render.filepath = _resolve_output_path(output_path)
+            resolved = _resolve_output_path(output_path)
+            if refusal := _refusal(resolved, _allow_roots):
+                return {"success": False, "error": refusal}
+            scene.render.filepath = resolved
 
         return {
             "success": True,
@@ -52,10 +67,13 @@ class RenderingTools:
             "message": "Render settings updated",
         }
 
-    def render_frame(self, output_path=None):
+    def render_frame(self, output_path=None, _allow_roots=None):
         """Render current frame"""
         if output_path:
-            bpy.context.scene.render.filepath = _resolve_output_path(output_path)
+            resolved = _resolve_output_path(output_path)
+            if refusal := _refusal(resolved, _allow_roots):
+                return {"success": False, "error": refusal}
+            bpy.context.scene.render.filepath = resolved
 
         bpy.ops.render.render(write_still=True)
 
@@ -65,7 +83,7 @@ class RenderingTools:
             "message": "Frame rendered",
         }
 
-    def render_animation(self, start_frame=None, end_frame=None, output_dir=None):
+    def render_animation(self, start_frame=None, end_frame=None, output_dir=None, _allow_roots=None):
         """Render animation"""
         scene = bpy.context.scene
 
@@ -74,7 +92,10 @@ class RenderingTools:
         if end_frame:
             scene.frame_end = end_frame
         if output_dir:
-            scene.render.filepath = _resolve_output_path(output_dir)
+            resolved = _resolve_output_path(output_dir)
+            if refusal := _refusal(resolved, _allow_roots):
+                return {"success": False, "error": refusal}
+            scene.render.filepath = resolved
 
         bpy.ops.render.render(animation=True)
 
@@ -94,6 +115,7 @@ class RenderingTools:
         margin=1.35,
         engine=None,
         objects=None,
+        _allow_roots=None,
     ):
         """Render orthographic TOP/FRONT/SIDE (+ISO) previews of the scene.
 
@@ -227,7 +249,10 @@ class RenderingTools:
                 cam_data.ortho_scale = fit * margin
 
                 out = os.path.join(output_dir, f"{prefix}_{key}.png")
-                scene.render.filepath = _resolve_output_path(out)
+                resolved_out = _resolve_output_path(out)
+                if refusal := _refusal(resolved_out, _allow_roots):
+                    return {"success": False, "error": refusal}
+                scene.render.filepath = resolved_out
                 bpy.ops.render.render(write_still=True)
                 written.append({"view": key, "path": scene.render.filepath.replace("\\", "/")})
         finally:

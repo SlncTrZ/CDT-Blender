@@ -4,7 +4,7 @@ import math
 
 import bpy  # type: ignore
 
-from ..utils import get_object
+from ..utils import OutsideAllowRoots, get_object, require_allowed
 
 
 class SceneTools:
@@ -89,7 +89,7 @@ class SceneTools:
             "message": f"Distance ({mode}): {dist:.4f}",
         }
 
-    def get_viewport_screenshot(self, max_size=800, filepath=None):
+    def get_viewport_screenshot(self, max_size=800, filepath=None, _allow_roots=None):
         """Capture the 3D viewport to a PNG. Works from the socket-server timer by
         overriding the context onto an open VIEW_3D area; falls back to an OpenGL
         viewport render, then a Workbench camera render when no window exists."""
@@ -101,10 +101,15 @@ class SceneTools:
             base = os.path.join(assets_dir, "screenshots") if assets_dir else tempfile.gettempdir()
             os.makedirs(base, exist_ok=True)
             filepath = os.path.join(base, "viewport.png")
-        elif not os.path.isabs(filepath):
+        elif not os.path.isabs(filepath) and not filepath.startswith("//"):
             assets_dir = os.environ.get("BLENDER_ASSETS_DIR")
             if assets_dir:
                 filepath = os.path.join(assets_dir, filepath)
+
+        try:
+            require_allowed(filepath, _allow_roots)
+        except OutsideAllowRoots as exc:
+            return {"success": False, "error": str(exc)}
 
         # Find an open 3D viewport to capture
         win = area = region = None
