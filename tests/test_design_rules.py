@@ -167,7 +167,7 @@ class TestRegistrationAndDispatch:
 
         seen = {}
 
-        def capture(name, args, rid):
+        def capture(name, args, rid, **kwargs):
             seen["name"] = name
             return {"status": "success"}
 

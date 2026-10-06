@@ -98,7 +98,39 @@ class MutationLifecycleManager:
         """
         fingerprint = compute_payload_fingerprint(cmd_type, params)
         with self._lock:
-            # 1. Check existing receipt for exact same op_id
+            # 1. Check existing receipt or active reservation for exact same op_id
+            if op_id in self._pending_ops or op_id in self._in_flight or op_id in self._uncertain_ops:
+                # Active operations cannot be admitted again
+                if op_id in self._pending_ops:
+                    return False, {
+                        "status": "error",
+                        "kind": "duplicate_pending",
+                        "retryable": True,
+                        "op_id": op_id,
+                        "message": f"Operation [{op_id}] is already pending admission in queue.",
+                        "receipt": self._receipts.get(op_id),
+                    }
+                if op_id in self._in_flight:
+                    return False, {
+                        "status": "error",
+                        "kind": "in_flight",
+                        "retryable": True,
+                        "op_id": op_id,
+                        "message": f"Operation [{op_id}] is currently executing in Blender.",
+                    }
+                if op_id in self._uncertain_ops:
+                    return False, {
+                        "status": "error",
+                        "kind": "timeout_uncertain",
+                        "retryable": True,
+                        "op_id": op_id,
+                        "message": (
+                            f"Operation [{op_id}] is in uncertain state. "
+                            "Caller must call reconcile_operation before retrying."
+                        ),
+                        "receipt": self._receipts.get(op_id),
+                    }
+
             if op_id in self._receipts:
                 receipt = self._receipts[op_id]
                 existing_fp = receipt.get("fingerprint")
@@ -319,8 +351,14 @@ class MutationLifecycleManager:
     ) -> dict[str, Any]:
         """Reconcile an operation receipt.
 
-        F04: Action 'resolve' or 'acknowledge' ONLY unlocks uncertainty if verified is True,
-        or if receipt was background_committed/failed. If verified is False, uncertainty persists.
+        Action semantics:
+        - 'query': Strictly read-only observation. Inspects current state and optionally executes
+                   verifier without modifying receipt state or unlocking uncertainty.
+        - 'resolve' / 'acknowledge': Reconciles uncertainty if and only if:
+                   1) The operation had background_failed -> transitions to FAILED and unlocks.
+                   2) The operation had background_committed or native verification succeeded ->
+                      transitions to COMMITTED and unlocks.
+                   If verification failed or was inconclusive, uncertainty persists.
         """
         with self._lock:
             receipt = self._receipts.get(op_id)
@@ -340,23 +378,34 @@ class MutationLifecycleManager:
                 except Exception as exc:
                     native_report = {"verified": False, "error": str(exc)}
 
-            verified_ok = False
-            if native_report is not None:
-                if native_report.get("verified"):
-                    verified_ok = True
-                    receipt["state"] = ReceiptState.COMMITTED
-            elif receipt.get("background_committed"):
-                verified_ok = True
-                receipt["state"] = ReceiptState.COMMITTED
-            elif receipt.get("background_failed"):
-                verified_ok = True
-                receipt["state"] = ReceiptState.FAILED
+            # Query mode: strictly read-only snapshot observation
+            if action not in ("resolve", "acknowledge", "clear"):
+                return {
+                    "status": "success",
+                    "op_id": op_id,
+                    "state": receipt.get("state"),
+                    "receipt": dict(receipt),
+                    "native_verification": native_report,
+                    "uncertain_operations": sorted(self._uncertain_ops),
+                }
 
-            # Uncertainty can ONLY be unlocked when verified_ok is True
-            if action in ("resolve", "acknowledge", "clear") and verified_ok:
-                self._uncertain_ops.discard(op_id)
+            # Resolve / Acknowledge: determine definitive outcome
+            resolved_state = None
+            if receipt.get("background_failed"):
+                # Definite failure confirmed: preserve failure, never promote to committed!
+                resolved_state = ReceiptState.FAILED
+            elif receipt.get("background_committed") and (
+                native_report is None or native_report.get("verified")
+            ):
+                resolved_state = ReceiptState.COMMITTED
+            elif native_report and native_report.get("verified"):
+                resolved_state = ReceiptState.COMMITTED
+
+            if resolved_state is not None:
+                receipt["state"] = resolved_state
                 receipt["reconciled_at"] = time.time()
                 receipt["reconcile_action"] = action
+                self._uncertain_ops.discard(op_id)
 
             return {
                 "status": "success",
@@ -370,7 +419,12 @@ class MutationLifecycleManager:
     def _trim_receipts(self):
         while len(self._receipts) > self._max_receipts:
             for oldest_k in list(self._receipts.keys()):
-                if oldest_k not in self._uncertain_ops and oldest_k not in self._in_flight:
+                # Protected capacity: NEVER evict PENDING, IN_FLIGHT, or UNCERTAIN operations
+                if (
+                    oldest_k not in self._uncertain_ops
+                    and oldest_k not in self._in_flight
+                    and oldest_k not in self._pending_ops
+                ):
                     self._receipts.pop(oldest_k)
                     break
             else:

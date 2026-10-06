@@ -350,7 +350,11 @@ class BlenderMCPServer(
                 res = res["result"]
 
             # If the operation completed successfully in background with trusted outcome
-            if receipt.get("background_committed") and isinstance(res, dict) and bool(res.get("success", True)):
+            if (
+                receipt.get("background_committed")
+                and isinstance(res, dict)
+                and bool(res.get("success", True))
+            ):
                 return {"verified": True, "note": "Trusted background completion"}
 
             # F10: Verify object creation postconditions
@@ -360,7 +364,10 @@ class BlenderMCPServer(
                     if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
                         obj = bpy.data.objects[obj_name]
                         # Verify object has mesh data and matches expected type
-                        if getattr(obj, "type", None) == "MESH" and getattr(obj, "data", None) is not None:
+                        if (
+                            getattr(obj, "type", None) == "MESH"
+                            and getattr(obj, "data", None) is not None
+                        ):
                             return {
                                 "verified": True,
                                 "object_exists": True,
@@ -375,7 +382,7 @@ class BlenderMCPServer(
                     obj_name = res["name"]
                     if hasattr(bpy.data, "objects") and obj_name in bpy.data.objects:
                         return {"verified": True, "object_exists": True, "object_name": obj_name}
-                return {"verified": True, "note": "Transform postcondition checked"}
+                return {"verified": False, "note": "Target object for transform not found or conclusive data missing"}
 
             # F10: Verify document save/open target matches expected filepath
             if cmd in ("document_save", "document_save_as", "document_open"):
@@ -385,7 +392,8 @@ class BlenderMCPServer(
                 return {"verified": False, "note": "Document filepath is empty or does not exist"}
 
             if cmd == "document_new":
-                return {"verified": True, "filepath": getattr(bpy.data, "filepath", "")}
+                curr_fp = getattr(bpy.data, "filepath", "")
+                return {"verified": True, "filepath": curr_fp, "note": "document_new context verified"}
 
             return {"verified": False, "note": f"No native verifier available for command {cmd}"}
 

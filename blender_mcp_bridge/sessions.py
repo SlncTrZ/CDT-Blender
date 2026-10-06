@@ -388,20 +388,19 @@ class SessionPlayer:
                     else:
                         result = client.call_tool(cmd.tool, args)
 
-                    # A tool can complete its round-trip and still refuse to do the
-                    # work: generate_views returns {"success": false, "error": "No
-                    # visible mesh objects to render"} on an empty scene. Only
-                    # catching transport exceptions counted that as a success and
-                    # printed a green tick, which is how this project accumulated a
-                    # history of "26/26 passed" runs that produced wrong geometry.
-                    #
-                    # Note the payload also carries status="success" and
-                    # message="... completed successfully." alongside success=False —
-                    # those two are envelope-level (the CALL worked), so they must not
-                    # be consulted here. The tool-level "success" key is the authority.
+                    # Check for tool errors, timeouts, or uncertainty
                     tool_error = None
-                    if isinstance(result, dict) and result.get("success") is False:
-                        tool_error = result.get("error") or "tool reported success=false"
+                    if isinstance(result, dict):
+                        if result.get("success") == False:  # noqa: E712
+                            tool_error = result.get("error") or "tool reported success=false"
+                        elif result.get("status") == "error":
+                            tool_error = (
+                                result.get("message")
+                                or result.get("error")
+                                or f"tool reported error: {result.get('kind', 'unknown')}"
+                            )
+                        elif bool(result.get("isError")):
+                            tool_error = "tool reported isError=true"
                     if tool_error:
                         raise RuntimeError(tool_error)
 
@@ -415,10 +414,14 @@ class SessionPlayer:
                     # destroying the very message it was trying to report.
                     print(f"  {bold}{red}x ERROR:{reset} {e}")
                     fail_count += 1
+                    # H04: Stop dependent writes on error / timeout / uncertainty
+                    print(f"  {yellow}Playback aborted early due to failure on command {i + 1}.{reset}")
+                    break
 
                 print("-" * 60)
 
             self._print_summary(branch, len(commands), success_count, fail_count)
+            return success_count, fail_count
         finally:
             if hasattr(client, "aclose"):
                 await client.aclose()

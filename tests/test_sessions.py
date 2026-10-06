@@ -38,5 +38,35 @@ def test_session_lifecycle():
     print("[PASS] Session Lifecycle Unit Test Passed!")
 
 
+def test_playback_stops_on_error_or_uncertain(monkeypatch):
+    import asyncio
+    import types
+    from blender_mcp_bridge.sessions import SessionPlayer
+
+    player = SessionPlayer()
+    calls = []
+
+    class MockClient:
+        async def call_tool_async(self, tool, args):
+            calls.append(tool)
+            return {"status": "error", "kind": "timeout_uncertain", "message": "unverified"}
+
+    player._client = MockClient()
+    cmd1 = types.SimpleNamespace(tool="object_move", arguments={}, description="")
+    cmd2 = types.SimpleNamespace(tool="object_rotate", arguments={}, description="")
+    session = types.SimpleNamespace(metadata=types.SimpleNamespace(name="probe", description=""))
+    monkeypatch.setattr(player, "_select_branch", lambda *a: ([cmd1, cmd2], None, None))
+    monkeypatch.setattr(player, "_resolve_params", lambda *a: ({}, []))
+    monkeypatch.setattr(player, "_print_header", lambda *a: None)
+    monkeypatch.setattr(player, "_print_summary", lambda *a: None)
+
+    success_count, fail_count = asyncio.run(player.play(session))  # type: ignore[arg-type]
+    # Must fail fast: only first command called, second command aborted
+    assert len(calls) == 1
+    assert calls[0] == "object_move"
+    assert success_count == 0
+    assert fail_count == 1
+
+
 if __name__ == "__main__":
     test_session_lifecycle()

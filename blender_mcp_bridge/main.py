@@ -162,7 +162,9 @@ def play(path, transport, host, branch, param):
                 param_hint="--param",
             )
 
-    asyncio.run(player.play(session, branch=branch, params=params))
+    successes, failures = asyncio.run(player.play(session, branch=branch, params=params))
+    if failures > 0:
+        raise click.ClickException(f"Playback encountered {failures} error(s).")
 
 
 if __name__ == "__main__":
