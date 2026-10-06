@@ -33,6 +33,12 @@
 - Start Blender first, enable the addon, press **Start MCP Server** in the
   sidebar; then `cdt-blender serve`. `system_status` reports addon
   reachability (socket probe, no side effects).
+- Timeouts are layered and bounded: addon command wait `60s`
+  (`COMMAND_WAIT_TIMEOUT_SECONDS`) < bridge transport default `120s`
+  (`BLENDER_TRANSPORT_TIMEOUT_SECONDS`) so the addon's typed timeout reaches
+  the caller instead of being masked as a transport timeout; discovery probe
+  `2s`; request receive `5s`. A timeout is NOT proof of cancellation —
+  re-query state before retrying a mutation.
 
 ## Authentication
 
@@ -84,9 +90,12 @@ Every tool is callable by name. Do not invent tool names.
 ## Safety rules every client must respect
 
 1. Validate inputs before side effects; unknown fields are rejected.
-2. File arguments (`filepath`, `image_path`) must sit under
+2. File arguments (`filepath`, `image_path`) and render/output paths
+   (`output_path`, `output_dir`, export/import destinations, including
+   absolute and Blender-relative `//` paths) must sit under
    `BLENDER_ALLOW_ROOTS` (defaults to the assets dir or cwd); violations
-   fail with `validation_error` before Blender is contacted.
+   fail with `validation_error` before/without touching Blender state.
+   Symlink/junction escapes are resolved before the check.
 3. Writes are destructive by name (`delete_*`, `remove_*`, `apply_*` bake
    data); ordinary edits vs destructive ops are separated in descriptions.
 4. Context matters: UI-context capabilities need a running Blender with the

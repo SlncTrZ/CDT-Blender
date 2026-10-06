@@ -20,6 +20,11 @@ Independent Blender MCP provider for the CDT engineering program (SlncTrZ provid
 > interpretation and Audit Reports belong to CDT_Engineer Production Domains.
 >
 > Status: **B0 baseline/context PASS** · Verified native baseline is **Blender 4.5.3 LTS / Windows 11**; other Blender versions/platforms remain **unverified** · Spec pin: `CDT_Engineer@643019c`
+>
+> **CDT certified host target:** Blender **4.5.3 LTS on Windows 11**.
+> Current acceptance and quality scoring are bound to this target only. Other
+> Blender versions/platforms are optional future compatibility lanes; they are
+> not implied supported today and do not reduce the current target's score.
 
 ## Repository role
 
@@ -50,3 +55,13 @@ Current verified checkpoint (2026-09-14): **B0 baseline/context is accepted** on
 4. Research current `bpy` context behavior before changing the bridge boundary.
 
 Agent-local working instructions are supplied by the execution environment and are intentionally not part of the public repository. External research provenance is recorded in `ATTRIBUTION.md`.
+
+## Gateway-controlled execution lifecycle
+
+Integration target: an authorized lifecycle controller ensures the native runtime, verifies readiness, syncs the already-registered gateway provider, verifies activation, and refreshes client tools/list. The lifecycle tools are not implemented or advertised by this provider merely because this guide exists. A stopped engine must not be the only endpoint capable of starting itself.
+
+Require the accepted Blender 4.5.3 LTS Windows context, authenticated façade and connected addon. Verify mode/context separately from provider liveness. Bounded addon admission/tick budgets and timeout reconciliation remain rollout gates; B0 does not certify complete Modeling/Sculpting.
+
+Stop/drain requires verified ownership, no unresolved mutation and explicit dirty-document handling. Do not kill all application processes or silently discard work. Gateway hot activation does not require a gateway restart and may change the provider generation.
+
+Interface reference: [CDT_Engineer Execution Lifecycle Contract](https://github.com/SlncTrZ/CDT_Engineer/blob/main/docs/EXECUTION_LIFECYCLE_CONTRACT.md). The contract is a draft target and is not published by this documentation-only workspace update; it is available in the sibling CDT_Engineer checkout. Existing pinned `specs/**` remain unchanged.
