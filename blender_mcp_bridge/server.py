@@ -20,10 +20,94 @@ from starlette.routing import Mount, Route
 from .auth import auth_failure_status, verify_token
 from .config import settings
 from .connection import blender, logger
+from .local_runtime import LocalBlenderRuntimeAdapter
+from .runtime_transport import (
+    LocalBlenderRuntimeTransport,
+    RuntimeAuthError,
+    RuntimeGenerationMismatchError,
+    RuntimeOpRefusedError,
+    RuntimeTransportError,
+    RuntimeUnavailableError,
+    RuntimeUncertainError,
+)
 from .sessions import SessionRecorder
 from .tools import get_mcp_tools, is_mutation_tool
 from .tools.design_rules import DESIGN_RULE_HANDLERS
 from .tools.provider import PROVIDER_HANDLERS
+
+# B1/B2 runtime seam. The default single-host path delegates 1:1 over the
+# shared addon connection (same singleton the direct path used), so local
+# behavior is unchanged; the transport only adds the typed-error mapping the
+# remote path needs. The addon socket stays workstation-local.
+_default_transport: LocalBlenderRuntimeTransport | None = None
+
+
+def get_default_transport() -> LocalBlenderRuntimeTransport:
+    """Return the process-wide local runtime transport (lazy singleton)."""
+    global _default_transport
+    if _default_transport is None:
+        _default_transport = LocalBlenderRuntimeTransport(LocalBlenderRuntimeAdapter(blender))
+    return _default_transport
+
+
+def _runtime_error_result(
+    exc: RuntimeTransportError | RuntimeOpRefusedError, *, op_id: str | None, rid: str
+) -> dict:
+    """Map a typed transport failure to the provider error-dict shape.
+
+    Local-path behavior is unchanged (the local transport returns the addon's
+    own dicts and never raises these); this mapping serves the remote path
+    where dispatch loss/auth/generation failures raise instead.
+    """
+    effective_op = op_id or rid
+    if isinstance(exc, RuntimeUnavailableError):
+        return {
+            "status": "error",
+            "kind": "provider_unavailable",
+            "retryable": True,
+            "op_id": effective_op,
+            "message": f"Blender runtime is unavailable: {exc}",
+        }
+    if isinstance(exc, RuntimeUncertainError):
+        return {
+            "status": "error",
+            "kind": "timeout_uncertain",
+            "retryable": True,
+            "op_id": effective_op,
+            "message": f"{exc} Call reconcile_operation before retrying.",
+        }
+    if isinstance(exc, RuntimeAuthError):
+        return {
+            "status": "error",
+            "kind": "authentication_error",
+            "retryable": False,
+            "op_id": effective_op,
+            "message": str(exc),
+        }
+    if isinstance(exc, RuntimeGenerationMismatchError):
+        return {
+            "status": "error",
+            "kind": "conflict",
+            "retryable": False,
+            "op_id": effective_op,
+            "message": str(exc),
+        }
+    if isinstance(exc, RuntimeOpRefusedError):
+        return {
+            "status": "error",
+            "kind": "validation_error",
+            "retryable": False,
+            "op_id": effective_op,
+            "message": str(exc),
+        }
+    return {
+        "status": "error",
+        "kind": "internal_error",
+        "retryable": False,
+        "op_id": effective_op,
+        "message": str(exc),
+    }
+
 
 # Lifecycle / Recording State
 recorder: SessionRecorder | None = None
@@ -211,7 +295,10 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
         recorder.record_command(name, clean_args)
 
     def _send():
-        return blender.send_command(name, clean_args, rid, op_id=op_id)
+        try:
+            return get_default_transport().call(name, clean_args, rid=rid, op_id=op_id)
+        except (RuntimeTransportError, RuntimeOpRefusedError) as exc:
+            return _runtime_error_result(exc, op_id=op_id, rid=rid)
 
     blender_res = await asyncio.to_thread(_send)
     log_status, log_msg, blender_res = _normalize_result(name, blender_res)

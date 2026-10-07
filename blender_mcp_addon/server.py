@@ -42,6 +42,20 @@ MAX_ACTIVE_CLIENT_THREADS = 16
 
 COMMAND_WAIT_TIMEOUT_SECONDS = 60.0
 
+# B2 LAN-bind refusal: the addon socket is workstation-local by design. Only
+# the workstation runtime agent talks to it, and only over loopback. A wider
+# bind is refused unless the operator explicitly opts in (migration control
+# §19: no direct LAN addon exposure; remote access goes through the
+# authenticated RuntimeTransport + agent boundary instead).
+_ADDON_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+_ADDON_ALLOW_REMOTE_ENV = "BLENDER_ADDON_ALLOW_REMOTE"
+
+
+def _addon_bind_allowed(host: object) -> bool:
+    if str(host or "").lower() in _ADDON_LOOPBACK_HOSTS:
+        return True
+    return os.environ.get(_ADDON_ALLOW_REMOTE_ENV) == "1"
+
 
 def _transport_error(kind, message, *, retryable=False):
     return {
@@ -84,6 +98,17 @@ class BlenderMCPServer(
         if self.running:
             self._register_timer()
             return {"ok": True, "state": "running", "already_running": True}
+
+        if not _addon_bind_allowed(host):
+            error_msg = (
+                f"Refusing non-loopback addon bind {host!r}: the addon socket "
+                "is workstation-local. Remote access must go through the "
+                "authenticated workstation runtime agent instead. To override, "
+                f"set {_ADDON_ALLOW_REMOTE_ENV}=1."
+            )
+            self.last_error = error_msg
+            self.addon_log(error_msg)
+            return {"ok": False, "state": "refused", "error": error_msg}
 
         try:
             self.addon_log("Attempting to start MCP Server...")
