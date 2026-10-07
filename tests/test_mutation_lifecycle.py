@@ -408,3 +408,75 @@ def test_server_started_timeout_becomes_uncertain(monkeypatch):
     )
     assert rec_verified["status"] == "success"
     assert op_id not in server.lifecycle.get_uncertain_ops()
+
+
+def test_timeout_when_lifecycle_in_flight_without_container_flag_becomes_uncertain(monkeypatch):
+    """P1 regression: If lifecycle transitioned to IN_FLIGHT before container flag is set, timeout must become uncertain."""
+    module = _load_server_module(monkeypatch)
+    server = module.BlenderMCPServer()
+    server.running = True
+
+    op_id = "op-inflight-race"
+
+    # Hook try_start_dispatch to ensure lifecycle is IN_FLIGHT, but suppress container flag
+    orig_try_start = server.lifecycle.try_start_dispatch
+
+    def fake_try_start(o_id, cmd_type, deadline):
+        res = orig_try_start(o_id, cmd_type, deadline)
+        return res
+
+    monkeypatch.setattr(server.lifecycle, "try_start_dispatch", fake_try_start)
+
+    # Monkeypatch execute_command to block until after timeout
+    exec_event = threading.Event()
+    finish_event = threading.Event()
+
+    def slow_exec(cmd):
+        exec_event.set()
+        finish_event.wait(timeout=2.0)
+        return {"status": "success", "result": {"name": "Cube"}}
+
+    monkeypatch.setattr(server, "execute_command", slow_exec)
+
+    res = None
+
+    def run_cmd():
+        nonlocal res
+        res = server.handle_command(
+            {
+                "type": "create_cube",
+                "op_id": op_id,
+                "timeout": 0.05,
+                "params": {},
+            }
+        )
+
+    t = threading.Thread(target=run_cmd)
+    t.start()
+
+    # Wait for command to be in queue, then dispatch in background
+    time.sleep(0.01)
+    t_tick = threading.Thread(target=server._process_queue)
+    t_tick.start()
+
+    t.join(timeout=2.0)
+    finish_event.set()
+    t_tick.join(timeout=2.0)
+
+    assert res is not None
+    assert res["status"] == "error"
+    assert res["kind"] == "timeout_uncertain"
+    assert server.lifecycle.has_uncertain() is True
+    assert op_id in server.lifecycle.get_uncertain_ops()
+
+    # Verify dependent mutation is blocked by uncertainty fence
+    dep = server.handle_command(
+        {
+            "type": "create_cube",
+            "op_id": "op-dependent-blocked",
+            "params": {},
+        }
+    )
+    assert dep["status"] == "error"
+    assert dep["kind"] == "uncertain_predecessor_blocked"
+

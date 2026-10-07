@@ -66,6 +66,20 @@ class MutationLifecycleManager:
         self._in_flight: dict[str, float] = {}
         self._pending_ops: set[str] = set()
 
+    def is_dispatched(self, op_id: str) -> bool:
+        with self._lock:
+            if op_id in self._in_flight:
+                return True
+            receipt = self._receipts.get(op_id)
+            if not receipt:
+                return False
+            return receipt.get("state") in (
+                ReceiptState.IN_FLIGHT,
+                ReceiptState.COMMITTED,
+                ReceiptState.FAILED,
+                ReceiptState.UNCERTAIN,
+            )
+
     def is_mutation(self, cmd_type: str) -> bool:
         if not cmd_type:
             return False
@@ -263,6 +277,18 @@ class MutationLifecycleManager:
         """
         now = time.monotonic()
         with self._lock:
+            # 0. Check state: if already expired while pending, do not start
+            receipt = self._receipts.get(op_id)
+            if receipt and receipt.get("state") == ReceiptState.EXPIRED_PENDING:
+                return False, {
+                    "status": "error",
+                    "kind": "expired_pending",
+                    "retryable": True,
+                    "op_id": op_id,
+                    "message": f"Command '{cmd_type}' [{op_id}] expired before dispatch; not started.",
+                    "receipt": dict(receipt),
+                }
+
             # 1. Deadline check before start
             if deadline and now >= deadline:
                 self._pending_ops.discard(op_id)
@@ -404,16 +430,21 @@ class MutationLifecycleManager:
             self._receipts[op_id] = receipt
             self._trim_receipts()
 
-    def record_expired_pending(self, op_id: str, reason: str):
+    def record_expired_pending(self, op_id: str, reason: str) -> bool:
         with self._lock:
+            if op_id in self._in_flight:
+                return False
+            receipt = self._receipts.get(op_id)
+            if receipt and receipt.get("state") not in (ReceiptState.PENDING, ReceiptState.UNKNOWN):
+                return False
             self._pending_ops.discard(op_id)
-            self._in_flight.pop(op_id, None)
             receipt = self._receipts.get(op_id, {"op_id": op_id})
             receipt["state"] = ReceiptState.EXPIRED_PENDING
             receipt["expired_at"] = time.time()
             receipt["reason"] = reason
             self._receipts[op_id] = receipt
             self._trim_receipts()
+            return True
 
     def reconcile(
         self,

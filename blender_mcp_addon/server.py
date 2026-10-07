@@ -365,7 +365,11 @@ class BlenderMCPServer(
         signaled = result_event.wait(timeout=timeout)
         if not signaled:
             # BL-02: started past deadline becomes uncertain; pending past deadline expired
-            if res_container.get("dispatched"):
+            dispatched = res_container.get("dispatched") or self.lifecycle.is_dispatched(op_id)
+            if dispatched or not self.lifecycle.record_expired_pending(
+                op_id,
+                reason=f"Command '{cmd_type}' timed out while pending in admission queue",
+            ):
                 self.lifecycle.record_uncertain(
                     op_id,
                     reason=f"Command '{cmd_type}' started execution but exceeded caller deadline of {timeout}s",
@@ -384,10 +388,6 @@ class BlenderMCPServer(
                     "receipt": self.lifecycle.get_receipt(op_id),
                 }
             else:
-                self.lifecycle.record_expired_pending(
-                    op_id,
-                    reason=f"Command '{cmd_type}' timed out while pending in admission queue",
-                )
                 return {
                     "status": "error",
                     "kind": "expired_pending",
