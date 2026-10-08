@@ -1,0 +1,17 @@
+# Canonical repository text format: LF in the index and working tree.
+* text=auto eol=lf
+
+# Windows command scripts keep native CRLF semantics.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Known binary artifacts must never undergo text conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.blend binary
+*.blend1 binary
+*.blend2 binary
+*.3mf binary
+*.zip binary

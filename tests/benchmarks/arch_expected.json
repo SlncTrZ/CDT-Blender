@@ -1,0 +1,313 @@
+{
+  "scene_summary": {
+    "name": "Scene",
+    "object_count": 23,
+    "objects": [
+      {
+        "name": "HDB_Unit_Floor",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "HDB_Unit_Walls",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "HDB_Unit_Ceiling",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Bedroom_Right",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Bedroom_Top",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_LivingRoom_Top_Left",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_LivingRoom_Top_Right",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_MainBedroom_Right",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_MainBedroom_Top",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Bath_Middle_Divider",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Bath2_Entry",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Store_Left",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Store_Top",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Chute_Left",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Wall_Chute_Bottom",
+        "type": "MESH",
+        "location": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "name": "Lbl_Bedroom",
+        "type": "FONT",
+        "location": [
+          1.5,
+          2.0,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Store",
+        "type": "FONT",
+        "location": [
+          5.099999904632568,
+          7.300000190734863,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Main",
+        "type": "FONT",
+        "location": [
+          1.2000000476837158,
+          10.0,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Kitchen",
+        "type": "FONT",
+        "location": [
+          4.5,
+          12.0,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Living",
+        "type": "FONT",
+        "location": [
+          1.5,
+          6.0,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Bath2",
+        "type": "FONT",
+        "location": [
+          2.0999999046325684,
+          14.300000190734863,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Bath1",
+        "type": "FONT",
+        "location": [
+          2.0999999046325684,
+          12.5,
+          0.20000000298023224
+        ]
+      },
+      {
+        "name": "Lbl_Chute",
+        "type": "FONT",
+        "location": [
+          5.800000190734863,
+          14.699999809265137,
+          0.20000000298023224
+        ]
+      }
+    ],
+    "collections": [
+      "HDB_3Room_Flat"
+    ],
+    "success": true,
+    "message": "[MOLQA6] Retrieved scene info for 'Scene'. Found 23 objects across 1 collections.",
+    "status": "success"
+  },
+  "detailed_objects": {
+    "HDB_Unit_Floor": {
+      "name": "HDB_Unit_Floor",
+      "type": "MESH",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        6.0,
+        15.25,
+        0.15000002086162567
+      ],
+      "vertices": 12,
+      "faces": 8,
+      "modifiers": [],
+      "success": true,
+      "message": "[M1PJLI] Retrieved detailed info for object 'HDB_Unit_Floor' (Type: MESH).",
+      "status": "success"
+    },
+    "HDB_Unit_Walls": {
+      "name": "HDB_Unit_Walls",
+      "type": "MESH",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        6.600000381469727,
+        16.350000381469727,
+        2.950000047683716
+      ],
+      "vertices": 614,
+      "faces": 491,
+      "modifiers": [],
+      "success": true,
+      "message": "[219DRJ] Retrieved detailed info for object 'HDB_Unit_Walls' (Type: MESH).",
+      "status": "success"
+    },
+    "HDB_Unit_Ceiling": {
+      "name": "HDB_Unit_Ceiling",
+      "type": "MESH",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        6.0,
+        15.25,
+        0.0
+      ],
+      "vertices": 6,
+      "faces": 1,
+      "modifiers": [],
+      "success": true,
+      "message": "[UTU6CJ] Retrieved detailed info for object 'HDB_Unit_Ceiling' (Type: MESH).",
+      "status": "success"
+    }
+  }
+}

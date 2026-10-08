@@ -1,0 +1,57 @@
+# CDT-Blender .gitignore (fork of seehiong/blender-mcp-bridge, MIT — see ATTRIBUTION.md)
+#
+# Upstream ignores for studio/community/claude web assets were dropped with
+# those directories. *.blend stays ignored: working files, not source.
+
+# Secrets / environment
+.env
+.env.*
+*.secret
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# Blender artifacts (working files, never source)
+*.blend
+*.blend1
+*.blend2
+
+# Large regenerable slicer blobs
+*.3mf
+
+# Session recordings / generated benchmark output (tracked fixtures excepted)
+*.log
+tmp/
+scratch/
+/temp_*.py
+/tmp_*.py
+
+# Local CLI/runtime state
+.local/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent-local configuration (never product source)
+AGENTS.md
+.agents/
+CLAUDE.md
+.claude/
+.mcp.json
+
+# Internal development direction, roadmap and evidence
+_private/
