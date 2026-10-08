@@ -10,7 +10,6 @@
 | `specs/MCP_PROVIDER_STANDARD.md` | `MCP_PROVIDER_STANDARD.md` |
 | `specs/ARCHITECTURE.md` | `docs/ARCHITECTURE.md` |
 | `specs/CONTRACTS.md` | `docs/CONTRACTS.md` |
-| `docs/ROADMAP.md` | `docs/PLAN_BLENDER.md` |
 
 ## Rules
 
@@ -21,6 +20,6 @@
 - No runtime import from another CDT provider repository.
 - Modeling and Sculpting remain first-class native lanes; do not reduce Blender to generic render/object control.
 
-## Initial lane state
+## Scope
 
-This repository starts as a clean provider-native skeleton. The first implementation must establish the supported Blender/context matrix and bridge lifecycle before claiming interactive capabilities.
+This pin identifies shared inputs. Current capabilities and acceptance limits belong to the [runtime guide](TOOL_GUIDE.md).
