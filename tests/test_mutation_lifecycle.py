@@ -479,4 +479,3 @@ def test_timeout_when_lifecycle_in_flight_without_container_flag_becomes_uncerta
     )
     assert dep["status"] == "error"
     assert dep["kind"] == "uncertain_predecessor_blocked"
-

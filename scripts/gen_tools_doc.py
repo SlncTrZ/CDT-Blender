@@ -1,6 +1,6 @@
+import ast
 import importlib
 import pathlib
-import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -89,7 +89,23 @@ print("wrote docs/tools.md -", total, "tools")
 # deliberately never reach the addon. Addon handlers without a bridge schema
 # must be explicitly classified as INTERNAL_ADDON_COMMANDS or QUARANTINED.
 srv = open(f"{ROOT}/blender_mcp_addon/server.py", encoding="utf-8").read()
-addon = set(re.findall(r'"([a-z0-9_]+)":\s*self\.', srv))
+# Inspect the dispatch table only: response dictionaries also reference self.
+dispatch_tables = [
+    node.value
+    for node in ast.walk(ast.parse(srv))
+    if isinstance(node, ast.AnnAssign)
+    and isinstance(node.target, ast.Name)
+    and node.target.id == "methods"
+    and isinstance(node.value, ast.Dict)
+]
+if len(dispatch_tables) != 1:
+    raise RuntimeError("Expected exactly one annotated addon dispatch table")
+if any(
+    not isinstance(key, ast.Constant) or not isinstance(key.value, str)
+    for key in dispatch_tables[0].keys
+):
+    raise RuntimeError("Expected literal command names in addon dispatch table")
+addon = {key.value for key in dispatch_tables[0].keys}
 bridge = {t.name for cat, mod, fn in CATS for t in getattr(importlib.import_module(mod), fn)()}
 from blender_mcp_bridge.tools.design_rules import DESIGN_RULE_HANDLERS  # noqa: E402
 from blender_mcp_bridge.tools.provider import PROVIDER_HANDLERS  # noqa: E402
@@ -98,6 +114,9 @@ INTERNAL_ADDON_COMMANDS = {
     # Read-only provider discovery path. Queried by system_capabilities but not
     # advertised as a separate MCP tool.
     "get_runtime_context",
+    # Receipt recovery commands used by the bridge lifecycle protocol.
+    "operation_status",
+    "reconcile_operation",
 }
 
 
