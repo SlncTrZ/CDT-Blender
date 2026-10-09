@@ -167,3 +167,49 @@ def test_credential_broker_repr_does_not_expose_payload():
             "cdt-blender-test", {"token": "fixture-secret", "generation": "gen-fixture"}
         )
     )
+
+
+def test_stdio_unknown_discovery_refuses_with_method_not_found():
+    message = {"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {}}
+    env = dict(os.environ, BLENDER_RUNTIME_MODE="local")
+    completed = subprocess.run(
+        [sys.executable, "-m", "blender_mcp_bridge.main", "serve", "--transport", "stdio"],
+        input=json.dumps(message) + "\n",
+        text=True,
+        capture_output=True,
+        timeout=15,
+        env=env,
+    )
+    assert completed.returncode == 0, completed.stderr
+    response = json.loads(completed.stdout)
+    assert response["id"] == 1 and response["error"]["code"] == -32601
+
+
+def test_stdio_legacy_initialize_after_discovery_refusal():
+    messages = [
+        {"jsonrpc": "2.0", "id": "discovery", "method": "server/discover", "params": {}},
+        {
+            "jsonrpc": "2.0",
+            "id": "legacy",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {},
+                "clientInfo": {"name": "qualification", "version": "1"},
+            },
+        },
+    ]
+    completed = subprocess.run(
+        [sys.executable, "-m", "blender_mcp_bridge.main", "serve", "--transport", "stdio"],
+        input="".join(json.dumps(message) + "\n" for message in messages),
+        text=True,
+        capture_output=True,
+        timeout=15,
+        env=dict(os.environ, BLENDER_RUNTIME_MODE="local"),
+    )
+    assert completed.returncode == 0, completed.stderr
+    responses = {
+        message["id"]: message for message in map(json.loads, completed.stdout.splitlines())
+    }
+    assert responses["discovery"]["error"]["code"] == -32601
+    assert responses["legacy"]["result"]["serverInfo"]["name"] == "blender-mcp-bridge"

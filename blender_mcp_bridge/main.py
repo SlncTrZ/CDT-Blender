@@ -29,12 +29,44 @@ def _blender_health_check(interval: int = 5):
 
 
 async def _serve_stdio():
+    import anyio
+    from mcp import types
     from mcp.server.stdio import stdio_server
+    from mcp.shared.message import SessionMessage
 
     from .server import mcp_server
 
     async with stdio_server() as (reader, writer):
-        await mcp_server.run(reader, writer, mcp_server.create_initialization_options())
+        forward_writer, forward_reader = anyio.create_memory_object_stream[
+            SessionMessage | Exception
+        ](0)
+
+        async def forward_requests():
+            async with forward_writer:
+                async for item in reader:
+                    root = item.message.root if isinstance(item, SessionMessage) else None
+                    if isinstance(root, types.JSONRPCRequest) and root.method == "server/discover":
+                        # This SDK serves MCP v1. Refuse modern discovery with the
+                        # JSON-RPC method code so clients can negotiate legacy MCP.
+                        await writer.send(
+                            SessionMessage(
+                                types.JSONRPCMessage(
+                                    types.JSONRPCError(
+                                        jsonrpc="2.0",
+                                        id=root.id,
+                                        error=types.ErrorData(
+                                            code=-32601, message="Method not found"
+                                        ),
+                                    )
+                                )
+                            )
+                        )
+                    else:
+                        await forward_writer.send(item)
+
+        async with forward_reader, anyio.create_task_group() as tasks:
+            tasks.start_soon(forward_requests)
+            await mcp_server.run(forward_reader, writer, mcp_server.create_initialization_options())
 
 
 @click.group()
