@@ -7,7 +7,6 @@ import queue
 import socket
 import threading
 import time
-import traceback
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -123,12 +122,10 @@ class BlenderMCPServer(
             self._register_timer()
             self.last_error = None
             self.addon_log(f"MCP Server successfully started on {host}:{port}")
-            print(f"MCP Server started on {host}:{port}")
             return {"ok": True, "state": "running", "already_running": False}
         except Exception as e:
             error_msg = f"Failed to start server: {e}"
             self.last_error = error_msg
-            print(error_msg)
             self.addon_log(error_msg)
             self.stop_server()
             return {"ok": False, "state": "stopped", "error": error_msg}
@@ -168,7 +165,7 @@ class BlenderMCPServer(
             except Exception:
                 pass
 
-        print("MCP Server stopped")
+        self.addon_log("MCP Server stopped")
         return {"ok": True, "state": "stopped"}
 
     def _server_loop(self):
@@ -208,7 +205,7 @@ class BlenderMCPServer(
                 ).start()
             except Exception as e:
                 if self.running:
-                    print(f"[MCP] Server loop error: {e}")
+                    self.addon_log(f"[MCP] Server loop error: {type(e).__name__}")
 
     def _handle_client_slot(self, client):
         """Run a client handler while holding a concurrency slot.
@@ -297,7 +294,7 @@ class BlenderMCPServer(
             response = error if error is not None else self.handle_command(command)
             client.sendall(self._encode_response(response))
         except Exception as e:
-            print(f"[MCP] Client error: {e}")
+            self.addon_log(f"[MCP] Client error: {type(e).__name__}")
             try:
                 client.sendall(
                     self._encode_response(
@@ -616,8 +613,7 @@ class BlenderMCPServer(
                                 self.addon_log(f"Failed to push undo: {e}")
 
                     except Exception as e:
-                        traceback.print_exc()
-                        self.addon_log(f"Execution error on {cmd_type}: {e}")
+                        self.addon_log(f"Execution error on {cmd_type}: {type(e).__name__}: {e}")
                         self.lifecycle.record_failed(op_id, str(e))
                         res["result"] = {
                             "status": "error",
@@ -629,11 +625,9 @@ class BlenderMCPServer(
                 except queue.Empty:
                     break
                 except Exception as e:
-                    self.addon_log(f"Queue item processing error: {e}")
-                    traceback.print_exc()
+                    self.addon_log(f"Queue item processing error: {type(e).__name__}: {e}")
         except Exception as e:
-            self.addon_log(f"Critical Timer Error: {e}")
-            traceback.print_exc()
+            self.addon_log(f"Critical Timer Error: {type(e).__name__}: {e}")
 
         return 0.005
 
@@ -643,8 +637,7 @@ class BlenderMCPServer(
             command.get("params", {}),
             command.get("request_id", "unknown"),
         )
-        print(f"[MCP][{rid}] Executing: {cmd_type}")
-        print(f"[MCP][{rid}] Params: {params}")
+        self.addon_log(f"[MCP][{rid}] Executing: {cmd_type}")
 
         # Map types to methods (inherited from tool classes)
         # This keeps the dispatcher dynamic and maintains compatibility with existing client
@@ -823,6 +816,5 @@ class BlenderMCPServer(
                     )
             return {"status": "success", "result": result}
         except Exception as e:
-            print(f"[MCP] Handler error: {e}")
-            traceback.print_exc()
+            self.addon_log(f"[MCP] Handler error: {type(e).__name__}: {e}")
             return {"status": "error", "message": str(e)}
