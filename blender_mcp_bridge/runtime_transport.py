@@ -583,6 +583,7 @@ class RemoteBlenderRuntimeTransport(BlenderRuntimeTransport):
         auth_token: str,
         *,
         allow_remote: bool = False,
+        expected_generation: str | None = None,
         default_timeout_ms: int = DEFAULT_TIMEOUT_MS,
     ) -> None:
         if not str(auth_token or "").strip():
@@ -592,6 +593,7 @@ class RemoteBlenderRuntimeTransport(BlenderRuntimeTransport):
         self._auth_token = str(auth_token)
         self._default_timeout_ms = check_timeout_ms(default_timeout_ms)
         self._closed = False
+        self._expected_generation = expected_generation
 
     def __repr__(self) -> str:
         return f"RemoteBlenderRuntimeTransport(base_url={self._base_url!r}, auth=<redacted>)"
@@ -619,7 +621,11 @@ class RemoteBlenderRuntimeTransport(BlenderRuntimeTransport):
             rid=rid,
             timeout_ms=timeout_ms,
             op_id=op_id,
-            expected_generation=expected_generation,
+            expected_generation=(
+                expected_generation
+                if expected_generation is not None
+                else self._expected_generation
+            ),
         )
         wire = request.to_wire()  # bounds op + deadline + bytes before any I/O
         timeout_s = request.timeout_ms / 1000.0

@@ -18,6 +18,42 @@ bl_info = {
 _server_instance = None
 
 
+class BLENDERMCP_Preferences(bpy.types.AddonPreferences):
+    bl_idname = __package__
+
+    auto_start: bpy.props.BoolProperty(
+        name="Start bridge when Blender opens",
+        default=False,
+        description="Attach to the current document; does not create or reopen documents",
+    )
+    port: bpy.props.IntProperty(name="Loopback port", default=DEFAULT_PORT, min=1024, max=65535)
+
+    def draw(self, context):
+        self.layout.prop(self, "auto_start")
+        self.layout.prop(self, "port")
+
+
+def _preferences():
+    addon = bpy.context.preferences.addons.get(__package__)
+    return addon.preferences if addon else None
+
+
+def _start_configured_server():
+    global _server_instance
+    prefs = _preferences()
+    if _server_instance is None:
+        _server_instance = BlenderMCPServer()
+    port = prefs.port if prefs else DEFAULT_PORT
+    return _server_instance.start_server(host="127.0.0.1", port=port)
+
+
+def _auto_start():
+    prefs = _preferences()
+    if prefs and prefs.auto_start:
+        _start_configured_server()
+    return None
+
+
 class BLENDERMCP_OT_StartServer(bpy.types.Operator):
     """Start MCP Server"""
 
@@ -26,9 +62,7 @@ class BLENDERMCP_OT_StartServer(bpy.types.Operator):
 
     def execute(self, context):
         global _server_instance
-        if _server_instance is None:
-            _server_instance = BlenderMCPServer()
-        result = _server_instance.start_server()
+        result = _start_configured_server()
         if result["ok"]:
             message = (
                 "MCP Server already running" if result["already_running"] else "MCP Server started"
@@ -85,19 +119,24 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
 
 
 def register():
+    bpy.utils.register_class(BLENDERMCP_Preferences)
     bpy.utils.register_class(BLENDERMCP_OT_StartServer)
     bpy.utils.register_class(BLENDERMCP_OT_StopServer)
     bpy.utils.register_class(BLENDERMCP_PT_Panel)
+    bpy.app.timers.register(_auto_start, first_interval=1.0, persistent=True)
 
 
 def unregister():
     global _server_instance
+    if bpy.app.timers.is_registered(_auto_start):
+        bpy.app.timers.unregister(_auto_start)
     if _server_instance:
         _server_instance.stop_server()
         _server_instance = None
     bpy.utils.unregister_class(BLENDERMCP_PT_Panel)
     bpy.utils.unregister_class(BLENDERMCP_OT_StopServer)
     bpy.utils.unregister_class(BLENDERMCP_OT_StartServer)
+    bpy.utils.unregister_class(BLENDERMCP_Preferences)
 
 
 if __name__ == "__main__":

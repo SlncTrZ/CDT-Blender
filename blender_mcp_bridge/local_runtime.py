@@ -16,8 +16,8 @@ or exposes the addon protocol on any interface; LAN exposure stays refused
 from __future__ import annotations
 
 import socket
-import time
 from typing import Any
+from uuid import uuid4
 
 from . import provider_contract as contract
 from .config import settings
@@ -117,7 +117,7 @@ class LocalBlenderRuntimeAdapter(BlenderRuntimePort):
             response = self.execute(
                 "get_runtime_context",
                 {},
-                rid=f"RUNTIMESTATUS-{time.time_ns()}",
+                rid=f"RUNTIMESTATUS-{uuid4().hex}",
                 timeout_seconds=_RUNTIME_CONTEXT_TIMEOUT_SECONDS,
             )
         except Exception as exc:

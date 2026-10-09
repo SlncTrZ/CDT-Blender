@@ -152,7 +152,11 @@ def _load_server_module(monkeypatch):
 
 def _load_addon_module(monkeypatch):
     bpy = types.SimpleNamespace(
-        types=types.SimpleNamespace(Operator=FakeOperator, Panel=FakePanel),
+        types=types.SimpleNamespace(
+            Operator=FakeOperator, Panel=FakePanel, AddonPreferences=object
+        ),
+        props=types.SimpleNamespace(BoolProperty=lambda **kw: kw, IntProperty=lambda **kw: kw),
+        context=types.SimpleNamespace(preferences=types.SimpleNamespace(addons={})),
         utils=types.SimpleNamespace(
             register_class=lambda _cls: None, unregister_class=lambda _cls: None
         ),
@@ -192,7 +196,7 @@ def test_start_operator_reports_bind_failure_truthfully(monkeypatch):
         running = False
         last_error = "Failed to start server: address already in use"
 
-        def start_server(self):
+        def start_server(self, **kwargs):
             return {"ok": False, "state": "stopped", "error": self.last_error}
 
     setattr(module, "_server_instance", FailingServer())  # noqa: B010
@@ -402,3 +406,36 @@ def test_addon_transport_replaces_oversized_response_with_typed_error(monkeypatc
     assert response["retryable"] is False
     assert "response" in response["message"].lower()
     assert "budget" in response["message"].lower()
+
+
+def test_autostart_attaches_once_without_document_operations(monkeypatch):
+    module = _load_addon_module(monkeypatch)
+    calls = []
+    prefs = types.SimpleNamespace(auto_start=True, port=8888)
+    module.bpy.context.preferences.addons["blender_mcp_addon"] = types.SimpleNamespace(
+        preferences=prefs
+    )
+
+    class Server:
+        def start_server(self, **kwargs):
+            calls.append(kwargs)
+            return {"ok": True}
+
+    module._server_instance = Server()
+    assert module._auto_start() is None
+    assert calls == [{"host": "127.0.0.1", "port": 8888}]
+    prefs.auto_start = False
+    module._auto_start()
+    assert len(calls) == 1
+
+
+def test_autostart_timer_survives_initial_document_load(monkeypatch):
+    module = _load_addon_module(monkeypatch)
+    calls = []
+    module.bpy.app = types.SimpleNamespace(
+        timers=types.SimpleNamespace(
+            register=lambda function, **kwargs: calls.append((function, kwargs))
+        )
+    )
+    module.register()
+    assert calls == [(module._auto_start, {"first_interval": 1.0, "persistent": True})]

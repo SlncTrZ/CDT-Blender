@@ -156,7 +156,7 @@ class TestRegistrationAndDispatch:
             raise AssertionError("design-rule call was forwarded to Blender")
 
         call_tool = getattr(server.call_tool, "__wrapped__", server.call_tool)
-        with mock.patch.object(server.blender, "send_command", explode):
+        with mock.patch.object(server.get_default_transport(), "call", explode):
             for name in DESIGN_RULE_HANDLERS:
                 args = {"description": "2mm wall"} if name == "check_design" else {}
 
@@ -173,12 +173,12 @@ class TestRegistrationAndDispatch:
 
         seen = {}
 
-        def capture(name, args, rid, **kwargs):
+        def capture(name, args, *, rid, **kwargs):
             seen["name"] = name
             return {"status": "success"}
 
         call_tool = getattr(server.call_tool, "__wrapped__", server.call_tool)
-        with mock.patch.object(server.blender, "send_command", capture):
+        with mock.patch.object(server.get_default_transport(), "call", capture):
 
             async def _invoke_forward():
                 return await call_tool("create_cube", {"name": "Box"})

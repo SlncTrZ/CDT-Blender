@@ -19,10 +19,10 @@ from starlette.routing import Mount, Route
 
 from .auth import auth_failure_status, verify_token
 from .config import settings
-from .connection import blender, logger
-from .local_runtime import LocalBlenderRuntimeAdapter
+from .connection import logger
+from .runtime_factory import get_runtime
 from .runtime_transport import (
-    LocalBlenderRuntimeTransport,
+    BlenderRuntimeTransport,
     RuntimeAuthError,
     RuntimeGenerationMismatchError,
     RuntimeOpRefusedError,
@@ -35,18 +35,14 @@ from .tools import get_mcp_tools, is_mutation_tool
 from .tools.design_rules import DESIGN_RULE_HANDLERS
 from .tools.provider import PROVIDER_HANDLERS
 
-# B1/B2 runtime seam. The default single-host path delegates 1:1 over the
-# shared addon connection (same singleton the direct path used), so local
-# behavior is unchanged; the transport only adds the typed-error mapping the
-# remote path needs. The addon socket stays workstation-local.
-_default_transport: LocalBlenderRuntimeTransport | None = None
+# Dispatch and provider status share the same configured runtime.
+_default_transport: BlenderRuntimeTransport | None = None
 
 
-def get_default_transport() -> LocalBlenderRuntimeTransport:
-    """Return the process-wide local runtime transport (lazy singleton)."""
+def get_default_transport() -> BlenderRuntimeTransport:
     global _default_transport
     if _default_transport is None:
-        _default_transport = LocalBlenderRuntimeTransport(LocalBlenderRuntimeAdapter(blender))
+        _default_transport = get_runtime().transport
     return _default_transport
 
 
@@ -130,6 +126,10 @@ class PathContainmentError(ValueError):
 
 
 def _allow_roots() -> list[str]:
+    if settings.runtime_mode == "remote":
+        paths = get_runtime().paths
+        assert paths is not None
+        return list(paths.roots)
     roots = settings.allow_roots or ([ASSETS_DIR] if ASSETS_DIR else [os.getcwd()])
     # realpath (not just abspath): a symlink/junction inside roots pointing
     # outside must not bypass containment. Matches addon utils._canonical.
@@ -170,6 +170,13 @@ def resolve_path(args):
     outside BLENDER_ALLOW_ROOTS raises PathContainmentError before Blender
     is contacted.
     """
+    if settings.runtime_mode == "remote":
+        paths = get_runtime().paths
+        assert paths is not None
+        try:
+            return paths.resolve_arguments(args)
+        except ValueError as exc:
+            raise PathContainmentError(str(exc)) from exc
     base = ASSETS_DIR or os.getcwd()
 
     for key in ["image_path", "filepath"]:

@@ -21,12 +21,14 @@ any retry with the same op_id.
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 from . import provider_contract as contract
 from .local_runtime import _support_status
 from .runtime_port import BlenderRuntimePort
 from .runtime_transport import (
     BlenderRuntimeTransport,
+    RuntimeGenerationMismatchError,
     RuntimeTransportError,
     RuntimeUnavailableError,
     RuntimeUncertainError,
@@ -147,15 +149,30 @@ class RemoteBlenderRuntimeAdapter(BlenderRuntimePort):
         except RuntimeTransportError as exc:
             reachable = False
             agent = {"error": str(exc)}
-        self._last_available = reachable
+        binding_ready = reachable and (
+            self._expected_generation is None
+            or agent.get("generation") == self._expected_generation
+        )
+        adapter = agent.get("adapter", {})
+        native = (
+            isinstance(adapter, dict)
+            and adapter.get("reachable") is True
+            and adapter.get("native_identity_ready", True) is True
+        )
+        binding_ready = binding_ready and (
+            isinstance(adapter, dict) and adapter.get("native_identity_ready", True) is True
+        )
+        self._last_available = binding_ready and native
         return {
             "status": "ok",
+            "binding_ready": binding_ready,
+            "agent_reachable": reachable,
             "provider_name": contract.PROVIDER_ID,
             "provider_version": contract.PROVIDER_VERSION,
             "contract_version": contract.CONTRACT_VERSION,
             "transport": "remote",
             "generation": self._expected_generation,
-            "addon": {"connected": reachable, "agent": agent},
+            "addon": {"connected": binding_ready and native, "agent": agent},
         }
 
     def runtime_status(self) -> dict[str, Any]:
@@ -164,10 +181,17 @@ class RemoteBlenderRuntimeAdapter(BlenderRuntimePort):
             response = self._transport.call(
                 "get_runtime_context",
                 {},
-                rid="RUNTIMESTATUS-remote",
+                rid=f"RUNTIMESTATUS-remote-{uuid4().hex}",
                 timeout_seconds=2.0,
                 expected_generation=self._expected_generation,
             )
+        except RuntimeGenerationMismatchError:
+            self._last_available = False
+            return {
+                "backend_available": False,
+                "context_available": False,
+                "reason": "generation_mismatch: explicit operator binding required",
+            }
         except RuntimeTransportError:
             self._last_available = False
             return {
@@ -182,7 +206,9 @@ class RemoteBlenderRuntimeAdapter(BlenderRuntimePort):
             or not isinstance(response.get("result"), dict)
         ):
             return {
-                "backend_available": True,
+                "backend_available": not (
+                    isinstance(response, dict) and response.get("kind") == "provider_unavailable"
+                ),
                 "context_available": False,
                 "reason": "runtime_context_unavailable",
             }

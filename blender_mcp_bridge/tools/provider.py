@@ -10,15 +10,14 @@
 from __future__ import annotations
 
 import os
-import socket
-import time
 from typing import Any
 
 from mcp import types
 
 from .. import provider_contract as contract
 from ..config import settings
-from ..connection import blender
+from ..local_runtime import _support_status
+from ..runtime_factory import get_runtime
 
 
 def get_provider_tools() -> list[types.Tool]:
@@ -79,57 +78,15 @@ def _capability_summary() -> list[str]:
 
 
 def _addon_probe() -> dict[str, Any]:
-    host = settings.addon_host
-    port = settings.addon_port
-    try:
-        sock = socket.create_connection((host, port), timeout=2)
-        sock.close()
-        return {"connected": True, "host": host, "port": port}
-    except OSError as exc:
-        return {"connected": False, "host": host, "port": port, "reason": str(exc)}
+    return get_runtime().port.status()["addon"]
 
 
 def _runtime_support_status(snapshot: dict[str, Any]) -> str:
-    version = snapshot.get("blender_version_tuple")
-    version_tuple = tuple(version) if isinstance(version, (list, tuple)) else ()
-    if (
-        version_tuple == contract.VERIFIED_BLENDER_VERSION_TUPLE
-        and snapshot.get("platform_system") == contract.VERIFIED_PLATFORM_SYSTEM
-    ):
-        return "verified_native_baseline"
-    return "unverified_runtime"
+    return _support_status(snapshot)
 
 
 def _runtime_context_snapshot() -> dict[str, Any]:
-    """Return bounded runtime context; fail closed when the addon cannot answer."""
-    probe = _addon_probe()
-    if not probe.get("connected"):
-        return {
-            "backend_available": False,
-            "context_available": False,
-            "reason": "addon_unreachable",
-        }
-
-    # H06: Generate a distinct request ID so context queries are never cached as a static mutation ID
-    response = blender.send_command(
-        "get_runtime_context", {}, rid=f"SYSCTX-{time.time_ns()}", timeout_seconds=2.0
-    )
-    if (
-        not isinstance(response, dict)
-        or response.get("status") != "success"
-        or not isinstance(response.get("result"), dict)
-    ):
-        return {
-            "backend_available": True,
-            "context_available": False,
-            "reason": "runtime_context_unavailable",
-        }
-
-    snapshot = dict(response["result"])
-    snapshot["backend_available"] = True
-    snapshot["context_available"] = True
-    snapshot["runtime_support_status"] = _runtime_support_status(snapshot)
-    return snapshot
+    return get_runtime().port.runtime_status()
 
 
 def handle_help(_args: dict[str, Any]) -> dict[str, Any]:
@@ -157,7 +114,8 @@ def handle_system_status(_args: dict[str, Any]) -> dict[str, Any]:
         "provider_version": contract.PROVIDER_VERSION,
         "contract_version": contract.CONTRACT_VERSION,
         "contract_hash": contract.contract_hash(guide),
-        "transport": "http",
+        "transport": settings.mcp_transport,
+        "runtime": get_runtime().port.status(),
         "bridge": {"host": settings.bridge_host, "port": settings.bridge_port},
         "guide_available": len(guide) > 0,
         "addon": _addon_probe(),
@@ -170,7 +128,7 @@ def handle_system_capabilities(_args: dict[str, Any]) -> dict[str, Any]:
         "contract_version": contract.CONTRACT_VERSION,
         "common_contract_version": contract.COMMON_CONTRACT_VERSION,
         "backend_note": (
-            "in-Blender addon over local TCP; UI-context capabilities require a "
+            "in-Blender addon over the configured local or remote runtime; UI-context capabilities require a "
             "running Blender with the addon started. Current UI/mode/object readiness is "
             "reported through runtime_context; no unverified context-specific error kind is claimed."
         ),

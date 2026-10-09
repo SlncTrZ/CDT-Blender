@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import socket
 import threading
 
 import click
@@ -16,25 +15,26 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("mcp_server")
 
 
-def _blender_health_check(host: str, port: int, interval: int = 5):
-    """Background thread: logs when Blender addon connects or disconnects."""
+def _blender_health_check(interval: int = 5):
+    """Log configured native reachability without probing the wrong host."""
+    from .runtime_factory import get_runtime
+
     was_connected = None
     while True:
-        try:
-            s = socket.create_connection((host, port), timeout=2)
-            s.close()
-            connected = True
-        except OSError:
-            connected = False
-
+        connected = get_runtime().port.status()["addon"].get("connected") is True
         if connected != was_connected:
-            if connected:
-                logger.info(f"[Blender] 🟢 Connected to addon at {host}:{port}")
-            else:
-                logger.warning(f"[Blender] 🔴 Disconnected — addon not reachable at {host}:{port}")
+            logger.info("Blender addon connected=%s", connected)
             was_connected = connected
-
         threading.Event().wait(interval)
+
+
+async def _serve_stdio():
+    from mcp.server.stdio import stdio_server
+
+    from .server import mcp_server
+
+    async with stdio_server() as (reader, writer):
+        await mcp_server.run(reader, writer, mcp_server.create_initialization_options())
 
 
 @click.group()
@@ -44,6 +44,7 @@ def cli():
 
 
 @cli.command()
+@click.option("--transport", type=click.Choice(["http", "stdio"]), default="http")
 @click.option("--host", default=settings.bridge_host, help="Host to bind the server to")
 @click.option("--port", default=settings.bridge_port, help="Port to bind the server to")
 @click.option(
@@ -56,11 +57,26 @@ def cli():
 @click.option("--model", default="", help="AI model name used")
 @click.option("--description", default="", help="Session description")
 @click.option("--url", "doc_url", default="", help="Documentation URL")
-def serve(host, port, record_path, name, model, description, doc_url):
+def serve(transport, host, port, record_path, name, model, description, doc_url):
     """Start the Blender MCP server"""
     import os
 
     import blender_mcp_bridge.server as server_mod
+
+    settings.mcp_transport = transport
+    from .runtime_factory import get_runtime
+
+    try:
+        get_runtime()
+    except (ValueError, OSError) as exc:
+        raise click.ClickException(
+            "Invalid runtime profile; check binding and credential channel"
+        ) from exc
+    if transport == "stdio":
+        if record_path:
+            raise click.ClickException("Session recording is unavailable on stdio")
+        asyncio.run(_serve_stdio())
+        return
 
     # CDT fork: fail closed. Network transport without BLENDER_MCP_TOKEN is
     # refused unless MCP_ALLOW_UNAUTHENTICATED=1 (strictly local loopback testing only).
@@ -95,7 +111,6 @@ def serve(host, port, record_path, name, model, description, doc_url):
     # Start Blender addon health check in background
     t = threading.Thread(
         target=_blender_health_check,
-        args=(settings.addon_host, settings.addon_port),
         daemon=True,
     )
     t.start()

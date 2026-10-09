@@ -92,6 +92,7 @@ class BlenderMCPServer(
         self.last_error = None
         self.timer_handle = None
         self.lifecycle = MutationLifecycleManager()
+        self.runtime_generation = f"addon-{uuid.uuid4().hex}"
         self._client_slots = threading.BoundedSemaphore(MAX_ACTIVE_CLIENT_THREADS)
 
     def start_server(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
@@ -318,6 +319,16 @@ class BlenderMCPServer(
         if not self.running:
             return {"status": "error", "message": "Server not running"}
 
+        params = dict(command.get("params") or {})
+        expected = params.pop("_runtime_generation", None)
+        if expected is not None and expected != self.runtime_generation:
+            return {
+                "status": "error",
+                "kind": "runtime_generation_mismatch",
+                "retryable": False,
+                "message": "Addon identity changed before admission; no work was queued.",
+            }
+        command = dict(command, params=params)
         op_id = str(command.get("op_id") or command.get("request_id") or uuid.uuid4())
         command["op_id"] = op_id
         command["request_id"] = op_id
@@ -513,6 +524,7 @@ class BlenderMCPServer(
         scene = bpy.context.scene
 
         return {
+            "runtime_generation": self.runtime_generation,
             "blender_version": bpy.app.version_string,
             "blender_version_tuple": list(bpy.app.version),
             "platform_system": platform.system(),

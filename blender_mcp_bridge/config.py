@@ -1,5 +1,6 @@
 # blender_mcp_bridge/config.py
 
+import json
 import os
 
 from dotenv import load_dotenv
@@ -31,6 +32,19 @@ class Config:
             ).split(os.pathsep)
             if root.strip()
         ]
+
+        roots_json = os.getenv("BLENDER_ALLOW_ROOTS_JSON")
+        if roots_json:
+            roots = json.loads(roots_json)
+            if not isinstance(roots, list) or not all(isinstance(root, str) for root in roots):
+                raise ValueError("BLENDER_ALLOW_ROOTS_JSON must be an array of strings")
+            self.allow_roots = roots
+        self.runtime_mode = os.getenv("BLENDER_RUNTIME_MODE", "local")
+        self.runtime_url = os.getenv("BLENDER_RUNTIME_URL", "")
+        self.runtime_generation = os.getenv("BLENDER_RUNTIME_GENERATION", "").strip()
+        self.runtime_platform = os.getenv("BLENDER_RUNTIME_PLATFORM", "")
+        self.runtime_token_fd = os.getenv("BLENDER_RUNTIME_TOKEN_FD", "")
+        self.mcp_transport = "http"
 
         # 2. Blender MCP Addon (Inside Blender)
         # Naming: BLENDER_ADDON_HOST (Strict) -> BLENDER_MCP_HOST (Previous) -> 127.0.0.1 (Default)

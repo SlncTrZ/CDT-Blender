@@ -14,7 +14,7 @@ the RuntimeTransport boundary. Scope is deliberately minimal:
 - bounded adapter dispatch by op name from the shared allowlist.
 
 The addon speaks only its existing local socket, and only with this agent's
-adapter: no new addon protocol, no LAN addon exposure, no MCP server here,
+adapter: native epoch metadata on the same local socket, no LAN addon exposure, no MCP server here,
 no engineering semantics, and — critically — NO lifecycle manager.
 Writer authority (op_id reservation, fingerprint, uncertainty gating) stays
 inside the addon's MutationLifecycleManager; the agent only serializes
@@ -28,7 +28,7 @@ import json
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
@@ -37,6 +37,8 @@ from uuid import uuid4
 from .runtime_transport import (
     MAX_REQUEST_BYTES,
     MAX_RESPONSE_BYTES,
+    RuntimeGenerationMismatchError,
+    RuntimeUnavailableError,
     bearer_matches,
     check_op,
     check_timeout_ms,
@@ -68,7 +70,8 @@ def _adapter_health_summary(adapter: Any) -> dict[str, Any]:
 class WorkstationAgentConfig:
     host: str = "127.0.0.1"
     port: int = 0  # 0 = ephemeral; actual port read back after start
-    auth_token: str = ""
+    auth_token: str = field(default="", repr=False)
+    require_native_generation: bool = False
     allow_remote_bind: bool = False
     max_request_bytes: int = MAX_REQUEST_BYTES
 
@@ -177,6 +180,8 @@ class WorkstationBlenderRuntimeAgent:
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._session = _current_process_session()
+        self._native_generation: str | None = None
+        self._native_identity_lock = threading.Lock()
 
     @property
     def generation(self) -> str:
@@ -197,12 +202,70 @@ class WorkstationBlenderRuntimeAgent:
 
     # -- runtime surface (no engineering semantics) --
 
+    def _native_probe(self, timeout_seconds: float = 2.0) -> str:
+        deadline = time.monotonic() + timeout_seconds
+        if not self._native_identity_lock.acquire(timeout=timeout_seconds):
+            raise RuntimeUnavailableError("native identity probe deadline exceeded")
+        try:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeUnavailableError("native identity probe deadline exceeded")
+            response = self._adapter.execute(
+                "get_runtime_context",
+                {},
+                rid=f"NATIVE-EPOCH-{uuid4().hex}",
+                timeout_seconds=remaining,
+            )
+            snapshot = response.get("result") if isinstance(response, dict) else None
+            if not (
+                isinstance(response, dict)
+                and response.get("status") == "success"
+                and isinstance(snapshot, dict)
+                and isinstance(snapshot.get("runtime_generation"), str)
+                and snapshot["runtime_generation"]
+            ):
+                raise RuntimeUnavailableError("native addon identity unavailable")
+            generation = snapshot["runtime_generation"]
+            if self._native_generation is None:
+                self._native_generation = generation
+            if generation != self._native_generation:
+                raise RuntimeGenerationMismatchError(
+                    "Blender addon restarted; restart agent and explicitly rebind runtime"
+                )
+            return generation
+        finally:
+            self._native_identity_lock.release()
+
+    def _native_execute(self, op: str, params: dict[str, Any], **kwargs: Any) -> Any:
+        timeout = float(kwargs.get("timeout_seconds", 120.0))
+        started = time.monotonic()
+        generation = self._native_probe(min(2.0, timeout))
+        remaining = timeout - (time.monotonic() - started)
+        if remaining <= 0:
+            raise RuntimeUnavailableError("native deadline expired before operation dispatch")
+        guarded = dict(params, _runtime_generation=generation)
+        result = self._adapter.execute(op, guarded, **dict(kwargs, timeout_seconds=remaining))
+        if isinstance(result, dict) and result.get("kind") == "runtime_generation_mismatch":
+            raise RuntimeGenerationMismatchError(
+                "Blender addon restarted during dispatch; restart agent and explicitly rebind"
+            )
+        return result
+
     def heartbeat(self) -> dict[str, Any]:
+        adapter = _adapter_health_summary(self._adapter)
+        if self._config.require_native_generation:
+            adapter["native_identity_ready"] = False
+            if adapter.get("reachable") is True:
+                try:
+                    adapter["native_generation"] = self._native_probe()
+                    adapter["native_identity_ready"] = True
+                except (RuntimeGenerationMismatchError, RuntimeUnavailableError):
+                    pass
         return {
             "generation": self._generation,
             "uptime_s": round(time.time() - self._started_at, 3),
             "session": dict(self._session),
-            "adapter": _adapter_health_summary(self._adapter),
+            "adapter": adapter,
         }
 
     def dispatch(
@@ -234,7 +297,11 @@ class WorkstationBlenderRuntimeAgent:
             bound_ms = check_timeout_ms(timeout_ms)
         except ValueError as exc:
             return self._envelope(False, None, "bad_request", str(exc), False)
-        target = getattr(self._adapter, "execute", None)
+        target = (
+            self._native_execute
+            if self._config.require_native_generation
+            else getattr(self._adapter, "execute", None)
+        )
         if not callable(target):
             return self._envelope(
                 False, None, "unknown_op", "adapter has no execute surface", False
@@ -244,6 +311,10 @@ class WorkstationBlenderRuntimeAgent:
         with self._dispatch_lock:
             try:
                 result = self._run_bounded(target, name, dict(params or {}), rid, bound_ms, op_id)
+            except RuntimeGenerationMismatchError as exc:
+                return self._envelope(False, None, "generation_mismatch", str(exc), False)
+            except RuntimeUnavailableError as exc:
+                return self._envelope(False, None, "unavailable", str(exc), False)
             except TimeoutError as exc:
                 # Deadline fired after dispatch started: completion unknown.
                 # Mutation or not, the caller must reconcile, never blind-retry

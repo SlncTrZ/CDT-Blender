@@ -4,12 +4,13 @@ Wing: blender | Topic: capability-honesty | Updated: 2026-09-14 16:50
 
 from __future__ import annotations
 
+from blender_mcp_bridge import local_runtime, runtime_factory
 from blender_mcp_bridge.tools import get_mcp_tools, provider
 
 
 def test_runtime_context_fails_closed_when_addon_is_unreachable(monkeypatch):
     monkeypatch.setattr(
-        provider,
+        local_runtime,
         "_addon_probe",
         lambda: {"connected": False, "host": "127.0.0.1", "port": 8888},
     )
@@ -38,19 +39,22 @@ def test_runtime_context_unwraps_native_snapshot(monkeypatch):
         "render_engine": "BLENDER_EEVEE_NEXT",
     }
 
-    class FakeBlender:
-        def send_command(self, command_type, params=None, rid="unknown", timeout_seconds=120.0):
+    class FakeBlender(local_runtime.BlenderConnection):
+        def send_command(
+            self, command_type, params=None, rid="unknown", timeout_seconds=120.0, op_id=None
+        ):
             assert command_type == "get_runtime_context"
             assert params == {}
             assert timeout_seconds == 2.0
             return {"status": "success", "result": native}
 
     monkeypatch.setattr(
-        provider,
+        local_runtime,
         "_addon_probe",
         lambda: {"connected": True, "host": "127.0.0.1", "port": 8888},
     )
-    monkeypatch.setattr(provider, "blender", FakeBlender())
+    monkeypatch.setattr(local_runtime, "blender", FakeBlender())
+    monkeypatch.setattr(runtime_factory, "_default_runtime", None)
 
     snapshot = provider._runtime_context_snapshot()
 
