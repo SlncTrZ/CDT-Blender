@@ -364,6 +364,12 @@ class ModelingOperators:
         original_selected = [o for o in bpy.context.selected_objects]
 
         try:
+            # Blender edits every selected mesh when entering Edit Mode.
+            # This command owns only the named target; restore selection below.
+            if bpy.context.mode != "OBJECT":
+                bpy.ops.object.mode_set(mode="OBJECT")
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
             bpy.context.view_layer.objects.active = obj
             selected_count = None
             if filter_normal:
@@ -481,6 +487,12 @@ class ModelingOperators:
         original_selected = [o for o in bpy.context.selected_objects]
 
         try:
+            # Blender edits every selected mesh when entering Edit Mode.
+            # This command owns only the named target; restore selection below.
+            if bpy.context.mode != "OBJECT":
+                bpy.ops.object.mode_set(mode="OBJECT")
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
             bpy.context.view_layer.objects.active = obj
             selected_count = None
             if filter_normal:

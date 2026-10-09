@@ -234,3 +234,56 @@ def test_path_containment_allowed_and_rejected():
 def test_path_containment_empty_roots_fail_closed():
     with pytest.raises(OutsideAllowRoots):
         require_allowed("some/path/file.fbx", [])
+
+
+@pytest.mark.parametrize(
+    ("command", "status", "undo_count"),
+    [
+        ("document_info", "success", 0),
+        ("object_list", "success", 0),
+        ("object_get", "success", 0),
+        ("object_count", "success", 0),
+        ("organization_list", "success", 0),
+        ("check_mesh_for_printing", "success", 0),
+        ("reconcile_operation", "success", 0),
+        ("operation_status", "success", 0),
+        ("document_save", "success", 0),
+        ("document_save_as", "success", 0),
+        ("create_cube", "success", 1),
+        ("create_cube", "error", 0),
+    ],
+)
+def test_queue_preserves_undo_for_reads_saves_and_failed_commands(
+    monkeypatch, command, status, undo_count
+):
+    pushes = []
+    monkeypatch.setattr(
+        server_mod.bpy,
+        "ops",
+        types.SimpleNamespace(ed=types.SimpleNamespace(undo_push=lambda **kw: pushes.append(kw))),
+        raising=False,
+    )
+    server = BlenderMCPServer()
+    server.running = True
+    monkeypatch.setattr(server, "addon_log", lambda *args: None)
+    monkeypatch.setattr(server, "execute_command", lambda cmd: {"status": status})
+    deadline = time.monotonic() + 10
+    admitted, rejection = server.lifecycle.reserve_and_admit(command, "undo-check", {}, deadline)
+    assert admitted and rejection is None
+    event = threading.Event()
+    container = {"result": None}
+    server.command_queue.put_nowait(
+        {
+            "command": {"type": command, "op_id": "undo-check"},
+            "op_id": "undo-check",
+            "deadline": deadline,
+            "event": event,
+            "container": container,
+        }
+    )
+
+    server._process_queue()
+
+    assert event.is_set()
+    assert container["result"]["status"] == status
+    assert len(pushes) == undo_count

@@ -580,10 +580,13 @@ class BlenderMCPServer(
 
                         # Push to Undo Stack if it's a state-changing command
                         if (
-                            cmd_type
-                            and not cmd_type.startswith("get_")
+                            self.lifecycle.is_mutation(cmd_type)
+                            and isinstance(exec_res, dict)
+                            and exec_res.get("status") == "success"
                             and cmd_type
                             not in [
+                                "document_save",
+                                "document_save_as",
                                 "undo",
                                 "redo",
                                 "render_frame",

@@ -29,6 +29,17 @@ def _connection_error(kind, message, *, retryable=False):
     }
 
 
+def _uncertain_response(op_id):
+    result = _connection_error(
+        "timeout_uncertain",
+        "Blender response lost or invalid after dispatch; completion is unknown. "
+        "Call reconcile_operation with this op_id before retrying.",
+        retryable=True,
+    )
+    result["op_id"] = op_id
+    return result
+
+
 class BlenderConnection:
     """Handles reliable on-demand socket communication with the Blender addon"""
 
@@ -79,6 +90,7 @@ class BlenderConnection:
             )
 
         sock = None
+        dispatched = False
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             remaining = deadline - time.monotonic()
@@ -90,29 +102,24 @@ class BlenderConnection:
                 )
             sock.settimeout(remaining)
             sock.connect((settings.addon_host, settings.addon_port))
+            dispatched = True  # sendall may fail after a partial write.
             sock.sendall(request_data)
 
             response_data = self.recv_all(sock, deadline, max_bytes=MAX_RESPONSE_BYTES)
             if not response_data:
-                kind = "timeout" if time.monotonic() >= deadline else "provider_unavailable"
-                return _connection_error(
-                    kind,
-                    "No response from Blender before the transport completed.",
-                    retryable=True,
-                )
+                return _uncertain_response(payload["op_id"])
 
             try:
-                return json.loads(response_data.decode("utf-8"))
+                response = json.loads(response_data.decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError):
-                return _connection_error(
-                    "internal_error",
-                    "Blender returned an invalid transport response.",
-                )
-        except ValueError as e:
-            logger.error(f"[Blender] Connection/Execution Error: {e}")
-            return _connection_error("internal_error", str(e))
+                return _uncertain_response(payload["op_id"])
+            if not isinstance(response, dict) or response.get("status") not in {"success", "error"}:
+                return _uncertain_response(payload["op_id"])
+            return response
         except Exception as e:
             logger.error(f"[Blender] Connection/Execution Error: {e}")
+            if dispatched:
+                return _uncertain_response(payload["op_id"])
             return _connection_error(
                 "provider_unavailable",
                 "Blender addon transport is unavailable.",

@@ -320,18 +320,41 @@ class RuntimeResponse:
     def from_wire(cls, payload: dict[str, Any]) -> RuntimeResponse:
         if not isinstance(payload, dict):
             raise RuntimeTransportError("malformed runtime response (not an object)")
+        required_types = {
+            "ok": bool,
+            "error_code": str,
+            "error_message": str,
+            "generation": str,
+            "completion_unknown": bool,
+        }
+        if any(type(payload.get(key)) is not kind for key, kind in required_types.items()):
+            raise RuntimeTransportError("malformed runtime response field types")
+        ok = payload["ok"]
+        code = payload["error_code"]
+        generation = payload["generation"]
+        unknown = payload["completion_unknown"]
+        if not code or not generation.strip() or generation == "unbound":
+            raise RuntimeTransportError("runtime response lacks a bound identity or error code")
+        if ok and (code != "ok" or unknown or not isinstance(payload.get("result"), dict)):
+            raise RuntimeTransportError("contradictory or malformed runtime success")
+        if not ok and code == "ok":
+            raise RuntimeTransportError("contradictory runtime failure")
         return cls(
-            ok=bool(payload.get("ok", False)),
+            ok=ok,
             result=payload.get("result"),
-            error_code=str(payload.get("error_code") or ("ok" if payload.get("ok") else "error")),
-            error_message=str(payload.get("error_message") or ""),
-            generation=str(payload.get("generation") or "unbound"),
-            completion_unknown=bool(payload.get("completion_unknown", False)),
+            error_code=code,
+            error_message=payload["error_message"],
+            generation=generation,
+            completion_unknown=unknown,
         )
 
 
 def raise_for_response(op: str, response: RuntimeResponse) -> Any:
     """Convert a verified wire response into a result or a typed error."""
+    if response.completion_unknown:
+        raise RuntimeUncertainError(
+            response.error_message or f"runtime op {op!r} completion is unknown"
+        )
     if response.ok:
         return response.result
     code = response.error_code
@@ -346,7 +369,9 @@ def raise_for_response(op: str, response: RuntimeResponse) -> Any:
         raise RuntimeUncertainError(message)
     if code == "unavailable":
         raise RuntimeUnavailableError(message)
-    raise RuntimeTransportError(f"{message} [{code}]")
+    raise RuntimeUncertainError(
+        f"{message} [{code}]; completion is unknown, reconcile before retry"
+    )
 
 
 class BlenderRuntimeTransport(ABC):
@@ -513,7 +538,7 @@ def _get_json(url: str, *, token: str, timeout_s: float) -> tuple[int, bytes]:
 
 def _decode_response(status: int, raw: bytes, *, op: str) -> RuntimeResponse:
     if len(raw) > MAX_RESPONSE_BYTES:
-        raise RuntimeTransportError(
+        raise RuntimeUncertainError(
             f"runtime response oversized ({len(raw)} bytes); discarded without trust"
         )
     if status in (401, 403):
@@ -532,9 +557,12 @@ def _decode_response(status: int, raw: bytes, *, op: str) -> RuntimeResponse:
         raise RuntimeTransportError(f"runtime endpoint http {status} for op {op!r}")
     try:
         payload = json.loads(raw.decode("utf-8") or "{}")
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise RuntimeTransportError(f"malformed runtime response for op {op!r}") from exc
-    return RuntimeResponse.from_wire(payload)
+        return RuntimeResponse.from_wire(payload)
+    except (ValueError, UnicodeDecodeError, RuntimeTransportError) as exc:
+        raise RuntimeUncertainError(
+            f"untrusted runtime response for op {op!r} after dispatch; "
+            "completion is unknown, reconcile before retry"
+        ) from exc
 
 
 class RemoteBlenderRuntimeTransport(BlenderRuntimeTransport):
@@ -624,17 +652,18 @@ class RemoteBlenderRuntimeTransport(BlenderRuntimeTransport):
                 f"({exc}); completion is unknown, blind retry is forbidden"
             ) from exc
         response = _decode_response(status, raw, op=request.op)
+        result = raise_for_response(request.op, response)
         if (
             request.expected_generation is not None
             and response.generation != request.expected_generation
         ):
-            raise RuntimeGenerationMismatchError(
-                f"runtime generation mismatch: expected {request.expected_generation!r}, "
+            raise RuntimeUncertainError(
+                f"runtime generation mismatch after dispatch: expected "
+                f"{request.expected_generation!r}, "
                 f"got {response.generation!r}; result for op {request.op!r} discarded"
             )
-        result = raise_for_response(request.op, response)
         if not isinstance(result, dict):
-            raise RuntimeTransportError(
+            raise RuntimeUncertainError(
                 f"remote op {request.op!r} returned malformed result (not an object)"
             )
         return result
