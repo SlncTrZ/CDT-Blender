@@ -20,6 +20,7 @@ from starlette.routing import Mount, Route
 from .auth import auth_failure_status, verify_token
 from .config import settings
 from .connection import logger
+from .provider_contract import PROVIDER_VERSION
 from .runtime_factory import get_runtime
 from .runtime_transport import (
     BlenderRuntimeTransport,
@@ -116,7 +117,7 @@ logging.getLogger("mcp").setLevel(logging.WARNING)
 logging.getLogger("starlette").setLevel(logging.WARNING)
 
 # Initialize MCP Server
-mcp_server = Server("blender-mcp-bridge", version=contract.PROVIDER_VERSION)
+mcp_server = Server("blender-mcp-bridge", version=PROVIDER_VERSION)
 
 ASSETS_DIR = settings.assets_dir
 
@@ -521,7 +522,7 @@ starlette_app = Starlette(
 # Add CORS middleware
 starlette_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.getenv("BLENDER_CORS_ORIGINS", "http://localhost,http://127.0.0.1,https://localhost").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
