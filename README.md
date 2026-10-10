@@ -3,7 +3,7 @@
 Blender-native MCP provider for bounded 3D execution. The bridge and addon own
 native operations; engineering-domain rules belong to CDT_Engineer.
 
-CDT package version `0.2.0rc1` (MCP contract `cdt-blender-contract-v10`);
+CDT package version `0.2.0` (MCP contract `cdt-blender-contract-v10`);
 upstream fork baseline `0.1.3`. Verified native baseline: Blender 4.5.3 LTS on
 Windows 11. Other versions/platforms are unverified. Modeling/sculpt support is
 tool-specific; context acceptance is not complete modeling/sculpt certification.

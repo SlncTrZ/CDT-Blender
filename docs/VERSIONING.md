@@ -1,14 +1,14 @@
 # CDT-Blender Versioning, Release & Auth-Preserving Deployment
 
-> Project policy · revised 2026-10-10 · release candidate v0.2.0rc1
+> Project policy · revised 2026-10-10 · stable package 0.2.0
 
 ## Three independent identities
 
-- **Package version** uses PEP 440 in `pyproject.toml` and `blender_mcp_bridge/provider_contract.py`. The package release is tagged **`v<package-version>`**, never inferred from time, an audit tag, or a moving `main` head.
+- **Package version** uses PEP 440 in `pyproject.toml` and `blender_mcp_bridge/provider_contract.py`. The package release is tagged **`v.<package-version>`**, never inferred from time, an audit tag, or a moving `main` head.
 - **MCP contract version** is `cdt-blender-contract-v10` and increments when public tools/schema/capability promises change. It is **not** a package version.
 - **Deployment version** is an immutable directory holding the exact release wheel, a pinned workstation agent/addon revision, installed SHA-256 manifest and scoped runtime profile. A release does **not** imply a host is running it.
 
-Sync invariants: package version in `pyproject.toml`, `uv.lock`, and `provider_contract.py` must match; Blender addon numeric `bl_info.version` must match `major.minor.patch`; Git release tag must match the PEP 440 package version. All tags for semantic releases begin with `v`. Historic `audit-*` / `freeze/*` tags are evidence/checkpoints and must not trigger publication.
+Sync invariants: package version in `pyproject.toml`, `uv.lock`, and `provider_contract.py` must match; Blender addon numeric `bl_info.version` must match `major.minor.patch`; Git release tag must match the PEP 440 package version. All new release tags are exactly `v.0.x.x`, with three numeric fields and no suffixes. Historic `audit-*` / `freeze/*` tags are evidence/checkpoints and must not trigger publication.
 
 ## Release gates
 
@@ -26,7 +26,8 @@ Do **not** launch long-lived workstation runtime agents through `powershell.exe`
 
 ## Current release-channel labels
 
-- `v0.2.0rc1`: v10 Blender L2 capability source with authenticated isolated E2E in Blender 4.5.3 Windows and full offline regression. **Release candidate**, not proof of production deployment.
+- `v.0.2.0`: stable L2 package release; Windows Blender 4.5.3 and offline regressions qualified. This does **not** prove production rollout.
+- `v0.2.0rc1`: historical release candidate; do not move or delete its tag.
 - `0.1.3+cdt.1`: historical fork metadata used by the old installed v9 provider (keep for rollback).
 
 See `CHANGELOG.md`, `docs/TOOL_GUIDE.md` and private host-specific deployment receipts for evidence.

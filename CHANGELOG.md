@@ -4,7 +4,13 @@ Upstream history lives in the upstream repository (seehiong/blender-mcp-bridge).
 CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 `b8113ae`, v0.1.3).
 
-## [0.2.0rc1] — CDT-Blender motion graphics L2 v10 — 2026-10-10
+## [0.2.0] — Stable CDT-Blender motion graphics L2 — 2026-10-10
+
+- Stable package version `0.2.0` with unchanged `cdt-blender-contract-v10` and 121 tools.
+- Git release format `v.0.2.0`; no prerelease suffixes. Published RC retained as history.
+- Production Gateway installation remains a separate promotion and auth gate.
+
+## [0.2.0rc1] — Historical release candidate — 2026-10-10
 
 - Source-verified 121-tool bridge, including seven bounded L2 SVG, GPv3,
   Geometry Nodes and Unicode/externally-shaped raster typography tools.

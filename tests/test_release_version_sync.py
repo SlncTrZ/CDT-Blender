@@ -18,7 +18,7 @@ def test_provider_package_version_matches_source_and_lockfile():
     lock = tomllib.loads((ROOT / "uv.lock").read_text())
     entry = next(p for p in lock["package"] if p["name"] == "cdt-blender")
     assert entry["version"] == pkg
-    assert re.fullmatch(r"\d+\.\d+\.\d+(?:rc\d+)?", pkg)
+    assert re.fullmatch(r"0\.\d+\.\d+", pkg)
 
 
 def test_addon_major_minor_patch_matches_provider_release():
@@ -42,8 +42,8 @@ def test_addon_major_minor_patch_matches_provider_release():
 
 def test_release_workflow_uses_semantic_tags_not_audit_tags():
     workflow = (ROOT / ".github/workflows/publish-release.yml").read_text()
-    assert 'tags: ["v*"]' in workflow
-    assert 'tag != f"v{version}"' in workflow
+    assert 'tags: ["v.0.*.*"]' in workflow
+    assert 'tag != f"v.{version}"' in workflow
     assert "--verify-tag" in workflow
     assert "SHA256SUMS" in workflow
 

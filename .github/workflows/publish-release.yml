@@ -2,7 +2,7 @@ name: Publish versioned source and wheel release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v.0.*.*"]
 
 permissions:
   contents: write
@@ -22,7 +22,9 @@ jobs:
       REQUIRED_BRANCH: "main"
       REQUIRED_WORKFLOW: "CI"
       RELEASE_SCOPE: >-
-        Motion graphics L2 contract v10, 121 MCP tools (7 new), authenticated source bridge to Blender 4.5.3 Windows headless (7 L2 tools) and UI (3 L2 tools) acceptance. 2634 offline tests passed on both Linux and Windows in native release qualification; production addon rollout and credential-preservation checks remain separate deploy gates.
+        Stable product release numbering; exact-source CI is required. Native app/build
+        qualification, artifact installation, owner auth and Gateway activation are separate
+        verifiable gates, not implied by the existence of a source release.
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
@@ -35,6 +37,7 @@ jobs:
           python - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
           import tomllib
 
@@ -57,7 +60,7 @@ jobs:
           else:
               version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
           tag = os.environ["GITHUB_REF_NAME"]
-          if tag != f"v{version}":
+          if re.fullmatch(r"v\.0\.[0-9]+\.[0-9]+", tag) is None or tag != f"v.{version}":
               raise SystemExit(f"Release tag {tag} != package v{version}")
           notes = (
               f"Versioned source and wheel release **{version}**.\n\n"
@@ -80,13 +83,9 @@ jobs:
       - name: Publish immutable versioned release
         shell: bash
         run: |
-          flags=()
-          if [[ "$GITHUB_REF_NAME" == *rc* || "$GITHUB_REF_NAME" == *a[0-9]* || "$GITHUB_REF_NAME" == *b[0-9]* ]]; then
-            flags+=(--prerelease --latest=false)
-          fi
           gh release create "$GITHUB_REF_NAME" \
             dist/*.whl dist/*.zip dist/SHA256SUMS \
             --verify-tag \
             --title "$GH_REPO — $GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
-            "${flags[@]}"
+            --latest
