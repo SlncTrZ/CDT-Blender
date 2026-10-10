@@ -115,10 +115,51 @@ conflict | rate_limited | timeout | provider_unavailable | internal_error |
 unsupported_capability`. Errors never include credentials, tokens, or stack
 traces. Each error states whether retry is reasonable.
 
+## Blender L2 motion-graphics extension (contract v10)
+
+Seven additive public tools are available in builds that include the matching
+bridge **and** in-Blender addon. Do not infer availability from source history;
+preflight `system_status`, attached addon generation/runtime context, and
+`system_capabilities` before mutation. No upgrade is claimed for the user's
+already-running addon.
+
+| Tool | Native scope / required verification |
+| --- | --- |
+| `import_svg_curves` | offline basic SVG with bounded whitelisted inline presentation styles; contains file within workstation allow-roots; CURVE object count/name/scale readback |
+| `create_grease_strokes` | Grease Pencil v3 bounded strokes and held-frame reveal; object type, drawing frames and points |
+| `create_filled_grease_tween` | same-topology, closed GPv3 polygon fill and LINEAR/SMOOTHSTEP point interpolation across held frames |
+| `create_particle_preset` | curated LINE/RING Geometry Nodes; bounded instances and rotation keyframes |
+| `create_animated_particle_grid` | curated rows/columns wave grid (≤512 instances) with keyed 4D Noise displacement |
+| `create_unicode_text` | native NFC Vietnamese/Latin multiline text with optional allow-root local font; refuses Arabic/Indic/RTL shaping |
+| `create_shaped_text_plane` | load bounded RGBA PNG shaped previously by RAQM/HarfBuzz/FriBidi, import as transparent textured plane and pack image into .blend; glyphs **not editable text/vector** |
+
+Complex Arabic/Hindi shaping uses a **separate offline raster preprocessor**
+`scripts/infographic_shape_text_asset.py` on a host with Pillow RAQM and
+explicit locally supplied font files. It does not transmit or redistribute
+font binaries; a missing shaping engine, font or allowed output root is a
+typed blocker. The tool `create_shaped_text_plane` imports only a produced
+PNG and does **not** execute arbitrary Python or invoke HarfBuzz inside Blender.
+
+All seven tools use the normal mutation `op_id` lifecycle and native readback
+policy. File-oriented operations receive workstation `_allow_roots` internally
+from the bridge, never from user input. These are provider-specific **L2**
+capabilities, not common CAD primitives. Older 114-tool clients remain
+compatible; when an old addon is attached, L2 calls can fail as unsupported and
+must not be retried blindly.
+
+### Native qualification scope
+
+Factory-startup Blender 4.5.3 Windows headless tests cover all seven addon
+dispatch handlers, plus 3-frame SVG style/GP fill tween/GN wave/RAQM visual
+qualification. Those tests do **not** prove Blender 5.x compatibility, live UI
+motion editing, final production video quality or network gateway deployment.
+For broader workflow claims, run isolated add-on lifecycle + real gateway E2E
+with a matching package before enabling a release.
+
 ## Versioning
 
 - `provider_version` — this software build (semver + `-cdt.N` fork suffix).
-- `contract_version` — this help/tool contract (`cdt-blender-contract-v9`).
+- `contract_version` — this help/tool contract (`cdt-blender-contract-v10`).
 - `common_contract_version` — applied CDT common semantics (`cdt-common-v1`).
 - `protocol_version` — MCP protocol / SDK compatibility declaration.
 - `contract_hash` — SHA-256 over this guide's canonical content; clients and

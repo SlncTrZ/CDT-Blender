@@ -18,7 +18,7 @@ PROVIDER_ID = "blender"
 PROVIDER_VERSION = "0.1.3+cdt.1"
 
 # Bump on any tool/capability change.
-CONTRACT_VERSION = "cdt-blender-contract-v9"
+CONTRACT_VERSION = "cdt-blender-contract-v10"
 
 # Applied CDT common semantics (subset claim — see CAPABILITIES).
 COMMON_CONTRACT_VERSION = "cdt-common-v1"
@@ -152,6 +152,33 @@ CAPABILITIES: dict[str, dict[str, str | bool]] = {
         "reason": "no_multires_workflow_yet",
     },
     "blender.scene.render": {"supported": True, "mode": "native"},
+    # L2 motion graphics: native Windows Blender 4.5.3 factory-startup proof.
+    # A provider must still revalidate its currently attached addon generation.
+    "blender.infographic.svg_curves": {
+        "supported": True,
+        "mode": "native",
+        "scope": "bounded_offline_svg_only_allow_roots_required",
+    },
+    "blender.infographic.grease_v3": {
+        "supported": True,
+        "mode": "native",
+        "scope": "strokes_and_filled_same_topology_held_frame_tween_only",
+    },
+    "blender.infographic.geometry_nodes": {
+        "supported": True,
+        "mode": "native",
+        "scope": "curated_line_ring_wavegrid_presets_only",
+    },
+    "blender.infographic.unicode_nfc": {
+        "supported": True,
+        "mode": "native",
+        "scope": "native_vietnamese_latin_font_no_complex_script_shaping",
+    },
+    "blender.infographic.complex_shaped_text": {
+        "supported": True,
+        "mode": "native",
+        "scope": "image_backed_pre_shaped_png_only_external_raqm_required_no_editable_glyphs",
+    },
     "blender.interchange.fbx": {"supported": True, "mode": "native"},
     "blender.interchange.gltf": {"supported": True, "mode": "native"},
 }

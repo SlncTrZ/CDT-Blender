@@ -46,6 +46,7 @@ _ALLOWED_ATTRS = frozenset(
         "stroke-linecap",
         "stroke-linejoin",
         "stroke-miterlimit",
+        "style",
     }
 )
 _NUMBERS = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
@@ -60,6 +61,45 @@ _FORBIDDEN = (
     b"@import",
 )
 _SAFE_ATTR_VALUE = re.compile(r"^[\w\s.,+\-#%():;/]*$", re.UNICODE)
+_STYLE_PROPERTIES = frozenset(
+    {
+        "fill",
+        "stroke",
+        "stroke-width",
+        "opacity",
+        "fill-opacity",
+        "stroke-opacity",
+        "fill-rule",
+        "stroke-linecap",
+        "stroke-linejoin",
+    }
+)
+_STYLE_COLOR = re.compile(r"(?:#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?|none)\Z")
+_STYLE_NUM = re.compile(r"(?:\d+(?:\.\d*)?|\.\d+)\Z")
+
+
+def _validate_inline_style(value: str) -> None:
+    """Allow only isolated presentation attributes, not CSS execution."""
+    if not value or len(value) > 512:
+        raise ValueError("SVG inline style must be 1..512 characters")
+    for declaration in value.strip().rstrip(";").split(";"):
+        if declaration.count(":") != 1:
+            raise ValueError("Invalid SVG inline style declaration")
+        key, raw_value = (part.strip() for part in declaration.split(":", 1))
+        if key not in _STYLE_PROPERTIES or not raw_value:
+            raise ValueError("Unsupported SVG style property")
+        if key in {"fill", "stroke"} and not _STYLE_COLOR.fullmatch(raw_value):
+            raise ValueError("Unsupported SVG style color")
+        if key in {"stroke-width", "opacity", "fill-opacity", "stroke-opacity"}:
+            high = 1000 if key == "stroke-width" else 1
+            if not _STYLE_NUM.fullmatch(raw_value) or float(raw_value) > high:
+                raise ValueError("Unsafe SVG style numeric value")
+        if key == "fill-rule" and raw_value not in {"evenodd", "nonzero"}:
+            raise ValueError("Unsupported SVG fill rule")
+        if key == "stroke-linecap" and raw_value not in {"butt", "round", "square"}:
+            raise ValueError("Unsupported SVG linecap")
+        if key == "stroke-linejoin" and raw_value not in {"miter", "round", "bevel"}:
+            raise ValueError("Unsupported SVG linejoin")
 
 
 def validate_svg_document(data: bytes) -> dict:
@@ -112,6 +152,8 @@ def validate_svg_document(data: bytes) -> dict:
                 for marker in ("http", "url(", "file:", "javascript:", "data:", "\\")
             ):
                 raise ValueError("SVG external/active/unsafe attribute refused")
+            if key == "style":
+                _validate_inline_style(value)
             if key in {"d", "points"}:
                 if len(_NUMBERS.findall(value)) > 4096:
                     raise ValueError("SVG shape has too many coordinates")
@@ -152,7 +194,12 @@ def validate_svg_document(data: bytes) -> dict:
         stack.extend((child, depth + 1) for child in node)
     if not 1 <= shapes <= 128:
         raise ValueError("SVG must contain 1..128 supported shapes")
-    return {"elements": nodes, "shapes": shapes, "profile": "offline-basic-2d"}
+    return {
+        "elements": nodes,
+        "shapes": shapes,
+        "profile": "offline-basic-2d",
+        "inline_style_supported": True,
+    }
 
 
 def import_svg_curves(

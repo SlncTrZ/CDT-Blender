@@ -159,6 +159,9 @@ _PATH_GUARDED_TOOLS = frozenset(
         "import_model",
         "export_fbx",
         "export_gltf",
+        "import_svg_curves",
+        "create_unicode_text",
+        "create_shaped_text_plane",
     }
 )
 

@@ -8,6 +8,7 @@ from .collections import get_collection_tools
 from .design_rules import get_design_rule_tools
 from .document import get_document_tools
 from .history import get_history_tools
+from .infographic import get_infographic_tools
 from .interchange import get_interchange_tools
 from .lifecycle import get_lifecycle_tools
 from .lighting import get_lighting_tools
@@ -98,6 +99,7 @@ def get_mcp_tools() -> list[types.Tool]:
     tools.extend(get_animation_tools())
     tools.extend(get_rendering_tools())
     tools.extend(get_history_tools())
+    tools.extend(get_infographic_tools())
     tools.extend(get_interchange_tools())
     tools.extend(get_printing_tools())
     tools.extend(get_sculpting_tools())

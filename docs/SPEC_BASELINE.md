@@ -20,6 +20,18 @@
 - No runtime import from another CDT provider repository.
 - Modeling and Sculpting remain first-class native lanes; do not reduce Blender to generic render/object control.
 
+## L2 Blender motion-graphics extension (separate pin)
+
+- Provider-specific L2 normative contract: `CDT_Engineer@ce66840`,
+  `docs/BLENDER_MOTION_GRAPHICS_EXTENSION_CONTRACT.md` (version `0.1.0`).
+- CDT-Blender MCP contract `cdt-blender-contract-v10`; 7 new bounded L2
+  tools, 121 MCP tools total. This does **not** alter the pinned common CAD
+  `643019c` inputs or silently synchronize `specs/**`.
+- The Engineer source commit has been validated locally but **not pushed**;
+  remote publication and matching installed addon deployment are separate
+  release gates. Source native/dispatch proof is Blender 4.5.3 headless on
+  Windows, not a claim for the current UI session or Blender 5.x.
+
 ## Scope
 
 This pin identifies shared inputs. Current capabilities and acceptance limits belong to the [runtime guide](TOOL_GUIDE.md).

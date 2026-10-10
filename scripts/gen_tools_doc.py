@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 CATS = [
     # CDT fork: provider contract first (answered locally, never reach Blender).
     ("Provider", "blender_mcp_bridge.tools.provider", "get_provider_tools"),
+    ("Lifecycle & Recovery", "blender_mcp_bridge.tools.lifecycle", "get_lifecycle_tools"),
     ("Document", "blender_mcp_bridge.tools.document", "get_document_tools"),
     ("Object Query", "blender_mcp_bridge.tools.object_query", "get_object_query_tools"),
     ("Organization", "blender_mcp_bridge.tools.organization", "get_organization_tools"),
@@ -20,6 +21,7 @@ CATS = [
     ("Lighting & World", "blender_mcp_bridge.tools.lighting", "get_lighting_tools"),
     ("Camera", "blender_mcp_bridge.tools.camera", "get_camera_tools"),
     ("Animation", "blender_mcp_bridge.tools.animation", "get_animation_tools"),
+    ("Motion Infographics L2", "blender_mcp_bridge.tools.infographic", "get_infographic_tools"),
     ("Rendering", "blender_mcp_bridge.tools.rendering", "get_rendering_tools"),
     ("History / Undo", "blender_mcp_bridge.tools.history", "get_history_tools"),
     # CDT fork: DCC interchange (Unreal Engine 5 lane).

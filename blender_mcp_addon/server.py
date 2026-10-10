@@ -19,6 +19,7 @@ from .tools.camera import CameraTools
 from .tools.collections import CollectionTools
 from .tools.document import DocumentTools
 from .tools.history import HistoryTools
+from .tools.infographic_tools import InfographicTools
 from .tools.interchange import InterchangeTools
 from .tools.lighting import LightTools
 from .tools.materials import MaterialTools
@@ -78,6 +79,7 @@ class BlenderMCPServer(
     LightTools,
     HistoryTools,
     InterchangeTools,
+    InfographicTools,
     PrintingTools,
     SculptingTools,
 ):
@@ -772,6 +774,14 @@ class BlenderMCPServer(
             "symmetrize_mesh": self.symmetrize_mesh,
             "clear_sculpt_mask": self.clear_sculpt_mask,
             "invert_sculpt_mask": self.invert_sculpt_mask,
+            # L2 motion graphics (bounded, Blender native)
+            "import_svg_curves": self.import_svg_curves,
+            "create_grease_strokes": self.create_grease_strokes,
+            "create_filled_grease_tween": self.create_filled_grease_tween,
+            "create_particle_preset": self.create_particle_preset,
+            "create_animated_particle_grid": self.create_animated_particle_grid,
+            "create_unicode_text": self.create_unicode_text,
+            "create_shaped_text_plane": self.create_shaped_text_plane,
             # History
             "undo": self.undo_action,
             "redo": self.redo_action,

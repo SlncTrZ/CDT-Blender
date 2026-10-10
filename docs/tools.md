@@ -1,4 +1,4 @@
-# Bridge Tool Reference — 112 tools
+# Bridge Tool Reference — 121 tools
 
 Auto-generated from the bridge tool schemas in `blender_mcp_bridge/tools/` (the single source of truth
 the MCP client sees). Regenerate after adding or changing a tool:
@@ -12,6 +12,7 @@ Every tool listed here has a matching handler in the Blender addon
 generator and fails loudly on drift.
 
 - [Provider](#provider) (3)
+- [Lifecycle & Recovery](#lifecycle--recovery) (2)
 - [Document](#document) (6)
 - [Object Query](#object-query) (3)
 - [Organization](#organization) (1)
@@ -23,6 +24,7 @@ generator and fails loudly on drift.
 - [Lighting & World](#lighting--world) (3)
 - [Camera](#camera) (3)
 - [Animation](#animation) (4)
+- [Motion Infographics L2](#motion-infographics-l2) (7)
 - [Rendering](#rendering) (4)
 - [History / Undo](#history--undo) (2)
 - [Interchange](#interchange) (2)
@@ -37,6 +39,13 @@ generator and fails loudly on drift.
 | `help` | Read-only operating contract for the blender provider: versions, authentication, capabilities and the complete usage guide. Call first; no side effects. | — |
 | `system_capabilities` | Read-only machine-readable capability map with supported/unsupported modes and refusal reasons. Preflight before calling mutating tools. No side effects. | — |
 | `system_status` | Read-only liveness report: provider versions, transport mode, guide availability and Blender addon reachability (socket probe only). No side effects. | — |
+
+## Lifecycle & Recovery
+
+| Tool | Description | Parameters (**bold** = required) |
+|---|---|---|
+| `operation_status` | Read-only query for the cached receipt of an operation ID. | **op_id** |
+| `reconcile_operation` | Query or reconcile the receipt state of a mutation after caller timeout, disconnect, or retry. For promoted operations, verifies native Blender datablock state. Pass action='resolve' with verified evidence or action='... | **op_id**, action |
 
 ## Document
 
@@ -175,6 +184,18 @@ generator and fails loudly on drift.
 | `play_animation` | Play or stop animation playback. | play |
 | `set_keyframe` | Set a keyframe for an object property. | **object_name**, **property_path**, **frame**, **value** |
 | `set_timeline_range` | Set the timeline range for animation. | **start_frame**, **end_frame**, current_frame |
+
+## Motion Infographics L2
+
+| Tool | Description | Parameters (**bold** = required) |
+|---|---|---|
+| `create_animated_particle_grid` | Build animated Geometry Nodes wave grid of up to 512 particles; no custom node injection. | **name**, rows, columns, spacing, amplitude, particle_radius, color, start_frame, end_frame |
+| `create_filled_grease_tween` | Animate closed filled Grease Pencil v3 polygons across held frames. Start/end strokes MUST have identical point counts. | **name**, **start_strokes**, **end_strokes**, start_frame, end_frame, steps, fill_color, outline_color, radius, easing |
+| `create_grease_strokes` | Create bounded Grease Pencil v3 strokes with optional held-frame progressive reveal (Blender 4.5+). | **name**, **strokes**, color, radius, start_frame, end_frame, steps |
+| `create_particle_preset` | Create a bounded curated Geometry Nodes LINE/RING instancing preset, with ring rotation keyframes. | **name**, mode, count, radius, color, start, end, ring_radius, frame_start, frame_end |
+| `create_shaped_text_plane` | Place an externally HarfBuzz/RAQM-shaped transparent PNG as an image-backed plane (not editable glyphs). PNG requires workstation allow-root. | **name**, **png_path**, width, location |
+| `create_unicode_text` | Native NFC Latin/Vietnamese multiline TextCurve; font files require allow-roots. Arabic/Indic shaping is NOT supported here. | **name**, **text**, size, tracking, line_spacing, align, color, location, font_path |
+| `import_svg_curves` | Import a vetted offline basic SVG as Blender CURVE objects. Rejects active/external content, requires workstation allow-root; scales to optional width. | **filepath**, **prefix**, target_width, location |
 
 ## Rendering
 

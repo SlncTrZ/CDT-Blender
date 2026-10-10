@@ -143,6 +143,14 @@ ALLOWED_OPS: frozenset[str] = frozenset(
         "build_pipe_run",
         "build_cable_tray",
         "add_tray_support",
+        # Additive L2 motion-infographic primitives (bounded native handlers)
+        "import_svg_curves",
+        "create_grease_strokes",
+        "create_filled_grease_tween",
+        "create_particle_preset",
+        "create_animated_particle_grid",
+        "create_unicode_text",
+        "create_shaped_text_plane",
         # animation
         "set_keyframe",
         "get_keyframes",
