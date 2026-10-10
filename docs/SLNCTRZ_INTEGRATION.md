@@ -1,6 +1,7 @@
 # Gateway integration
 
 The [runtime guide](TOOL_GUIDE.md) owns tool behavior and the contract hash.
+For versioned installation, auth-safe promotion and rollback, see [Release & deployment](RELEASE_AND_DEPLOYMENT.md). Current source package `0.2.1` has contract v10/121 tools; this does **not** imply it is active on the Gateway.
 The [generated reference](tools.md) lists the bridge tools.
 
 | Item | Setting |

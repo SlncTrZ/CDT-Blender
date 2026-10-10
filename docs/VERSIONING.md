@@ -1,6 +1,6 @@
 # CDT-Blender Versioning, Release & Auth-Preserving Deployment
 
-> Project policy · revised 2026-10-10 · stable package 0.2.0
+> Project policy · revised 2026-10-10 · stable package 0.2.1
 
 ## Three independent identities
 
@@ -26,6 +26,7 @@ Do **not** launch long-lived workstation runtime agents through `powershell.exe`
 
 ## Current release-channel labels
 
+- `v.0.2.1`: stable documentation and maintenance release, retains MCP contract v10; production activation remains a separate gate.
 - `v.0.2.0`: stable L2 package release; Windows Blender 4.5.3 and offline regressions qualified. This does **not** prove production rollout.
 - `v0.2.0rc1`: historical release candidate; do not move or delete its tag.
 - `0.1.3+cdt.1`: historical fork metadata used by the old installed v9 provider (keep for rollback).

@@ -6,7 +6,7 @@
 
 [project]
 name = "cdt-blender"
-version = "0.2.0"
+version = "0.2.1"
 description = "CDT-Blender generic 3D execution engine for SlncTrZ (provider: blender)"
 readme = "README.md"
 requires-python = ">=3.11"

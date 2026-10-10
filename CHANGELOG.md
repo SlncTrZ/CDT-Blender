@@ -4,6 +4,11 @@ Upstream history lives in the upstream repository (seehiong/blender-mcp-bridge).
 CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 `b8113ae`, v0.1.3).
 
+## [0.2.1] — Documentation and release maintenance — 2026-10-10
+
+- Clarified v10/121-tools source contract versus actively installed Gateway and addon versions; added auth-safe release/deployment guide, links and docs validation.
+- No change to Blender native support: measured Windows 11 Blender 4.5.3 LTS scope only.
+
 ## [0.2.0] — Stable CDT-Blender motion graphics L2 — 2026-10-10
 
 - Stable package version `0.2.0` with unchanged `cdt-blender-contract-v10` and 121 tools.

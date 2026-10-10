@@ -8,7 +8,7 @@ from .utils import DEFAULT_PORT
 bl_info = {
     "name": "Blender MCP Bridge",
     "author": "seehiong",
-    "version": (0, 2, 0),
+    "version": (0, 2, 1),
     "blender": (4, 5, 3),
     "location": "View3D > Sidebar > MCP",
     "description": "Blender Model Context Protocol (MCP) server for AI agents",
