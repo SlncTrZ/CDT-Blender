@@ -116,7 +116,7 @@ logging.getLogger("mcp").setLevel(logging.WARNING)
 logging.getLogger("starlette").setLevel(logging.WARNING)
 
 # Initialize MCP Server
-mcp_server = Server("blender-mcp-bridge")
+mcp_server = Server("blender-mcp-bridge", version=contract.PROVIDER_VERSION)
 
 ASSETS_DIR = settings.assets_dir
 
