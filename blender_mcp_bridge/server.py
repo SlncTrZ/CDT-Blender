@@ -522,7 +522,9 @@ starlette_app = Starlette(
 # Add CORS middleware
 starlette_app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("BLENDER_CORS_ORIGINS", "http://localhost,http://127.0.0.1,https://localhost").split(","),
+    allow_origins=os.getenv(
+        "BLENDER_CORS_ORIGINS", "http://localhost,http://127.0.0.1,https://localhost"
+    ).split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
