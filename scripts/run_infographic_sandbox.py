@@ -10,6 +10,7 @@ Does not load the CDT addon and does not bind a listening socket.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -49,6 +50,21 @@ def run(blender: Path, base: Path, output: Path, fixture: Path, timeout: int = 1
             raise RuntimeError(
                 f"Blender exited with code {result.returncode}; fixture directory retained for inspection"
             )
+        # Blender may exit 0 even when a Python script throws a traceback.
+        # Require a parseable explicit fixture receipt before claiming PASS.
+        receipts = [
+            line.removeprefix("AUDIT_JSON:").strip()
+            for line in result.stdout.splitlines()
+            if line.startswith("AUDIT_JSON:")
+        ]
+        if len(receipts) != 1:
+            raise RuntimeError("Missing or ambiguous AUDIT_JSON fixture receipt; refusing success")
+        try:
+            receipt = json.loads(receipts[0])
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("Invalid AUDIT_JSON fixture receipt") from exc
+        if not isinstance(receipt, dict) or receipt.get("blender") is None:
+            raise RuntimeError("Unqualified AUDIT_JSON receipt")
         for expected in ("infographic-sandbox.blend", "infographic-sandbox.png"):
             output_file = dest / expected
             if not output_file.is_file() or output_file.stat().st_size == 0:

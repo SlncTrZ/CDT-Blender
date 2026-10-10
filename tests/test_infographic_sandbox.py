@@ -38,7 +38,7 @@ def test_run_uses_headless_factory_startup_without_loading_user_scene(tmp_path, 
         calls.append((argv, kwargs))
         (root / "test" / "infographic-sandbox.blend").write_bytes(b"blend")
         (root / "test" / "infographic-sandbox.png").write_bytes(b"png")
-        return SimpleNamespace(returncode=0, stdout="native success")
+        return SimpleNamespace(returncode=0, stdout='AUDIT_JSON:{"blender":"4.5.3 LTS"}')
 
     monkeypatch.setattr("scripts.run_infographic_sandbox.subprocess.run", fake_run)
     run(exe, root, root / "test", fixture)
@@ -47,6 +47,35 @@ def test_run_uses_headless_factory_startup_without_loading_user_scene(tmp_path, 
     assert argv[1:3] == ["-b", "--factory-startup"]
     assert argv[3:6] == ["--python", str(fixture), "--"]
     assert kwargs["timeout"] == 150
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "Traceback: failed but Blender quit and returned 0",
+        'AUDIT_JSON:{"blender":',
+        'AUDIT_JSON:{"not_blender":"unknown"}',
+    ],
+)
+def test_refuses_exit_zero_without_valid_fixture_receipt(tmp_path, monkeypatch, stdout):
+    """Native Blender exit code alone cannot certify Python fixture success."""
+    root = tmp_path / "CDT-Blender" / "assets"
+    root.mkdir(parents=True)
+    exe = tmp_path / "blender.exe"
+    fixture = tmp_path / "fixture.py"
+    exe.touch()
+    fixture.touch()
+
+    def fake_run(*args, **kwargs):
+        output = root / "bad-receipt"
+        (output / "infographic-sandbox.blend").write_bytes(b"blend")
+        (output / "infographic-sandbox.png").write_bytes(b"png")
+        return SimpleNamespace(returncode=0, stdout=stdout)
+
+    monkeypatch.setattr("scripts.run_infographic_sandbox.subprocess.run", fake_run)
+    with pytest.raises(RuntimeError, match="AUDIT_JSON"):
+        run(exe, root, root / "bad-receipt", fixture)
+    assert (root / "bad-receipt").exists()
 
 
 def test_refuses_non_blender_binary(tmp_path):
