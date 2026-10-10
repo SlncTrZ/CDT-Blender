@@ -151,10 +151,22 @@ must not be retried blindly.
 
 Factory-startup Blender 4.5.3 Windows headless tests cover all seven addon
 dispatch handlers, plus 3-frame SVG style/GP fill tween/GN wave/RAQM visual
-qualification. Those tests do **not** prove Blender 5.x compatibility, live UI
-motion editing, final production video quality or network gateway deployment.
-For broader workflow claims, run isolated add-on lifecycle + real gateway E2E
-with a matching package before enabling a release.
+qualification. On 2026-10-10, a separately pinned test Gateway tunnel, bearer-
+authenticated workstation agent, MCP bridge v10 and native addon socket
+qualified all **7/7** L2 tools (121 advertised) with live save/render/reopen,
+path escape refusal, over-budget GN refusal, idempotent same-op replay and
+payload conflict refusal. The isolated interactive Blender UI (background=false,
+VIEW_3D present) qualified live text/Grease Pencil/GN mutations and saved and
+independently reopened its scene. The GN over-budget error initially lacked a
+kind; the follow-up addon fix types L2 ValueError refusals as validation_error,
+with focused regression and full cross-platform tests. Deployed user/provider
+packages were deliberately left unchanged.
+
+These results do **not** prove Blender 5.x compatibility, the entire 7-tool
+matrix in interactive UI, final production video/audio quality, or that the
+currently installed production bridge/addon advertises v10. Package rollout
+still requires separate installation, health/capability discovery, and post-
+installation E2E validation.
 
 ## Versioning
 

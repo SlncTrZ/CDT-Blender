@@ -124,6 +124,19 @@ def main() -> None:
         if reply.get("status") != "success":
             raise RuntimeError(f"Native MCP dispatch failed {command}: {reply}")
         results[command] = reply["result"]
+    refused = s.execute_command(
+        {
+            "type": "create_animated_particle_grid",
+            "params": {"name": "BAD_OVERBUDGET", "rows": 30, "columns": 30},
+            "request_id": "L2-TYPED-REFUSAL",
+        }
+    )
+    if not (
+        refused.get("status") == "error"
+        and refused.get("kind") == "validation_error"
+        and refused.get("retryable") is False
+    ):
+        raise AssertionError(f"Native L2 typed validation refusal failed: {refused}")
     bpy.data.objects["MCP_RING"].location = (2, -0.75, 0)
     bpy.data.objects["MCP_WAVE"].location = (1.0, -1.45, 0)
     camera_data = bpy.data.cameras.new("MCP_CAMERA")

@@ -27,10 +27,12 @@
 - CDT-Blender MCP contract `cdt-blender-contract-v10`; 7 new bounded L2
   tools, 121 MCP tools total. This does **not** alter the pinned common CAD
   `643019c` inputs or silently synchronize `specs/**`.
-- The Engineer source commit has been validated locally but **not pushed**;
-  remote publication and matching installed addon deployment are separate
-  release gates. Source native/dispatch proof is Blender 4.5.3 headless on
-  Windows, not a claim for the current UI session or Blender 5.x.
+- The Engineer source contract commit `ce66840` is **pushed** to `origin/main`.
+  Windows Blender 4.5.3 has been qualified through authenticated isolated
+  Gateway → MCP bridge → workstation agent → addon in both headless (7/7 L2)
+  and UI (3 L2) modes, including .blend reopen and lifecycle/security checks.
+  Updating the **installed production** bridge/addon remains a separate
+  deployment decision; Blender 5.x is still unverified.
 
 ## Scope
 

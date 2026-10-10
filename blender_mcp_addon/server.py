@@ -13,6 +13,7 @@ from typing import Any
 
 import bpy  # type: ignore
 
+from .infographic_errors import validation_refusal
 from .lifecycle import MutationLifecycleManager
 from .tools.animation import AnimationTools
 from .tools.camera import CameraTools
@@ -827,4 +828,7 @@ class BlenderMCPServer(
             return {"status": "success", "result": result}
         except Exception as e:
             self.addon_log(f"[MCP] Handler error: {type(e).__name__}: {e}")
+            typed = validation_refusal(cmd_type, e)
+            if typed is not None:
+                return typed
             return {"status": "error", "message": str(e)}
