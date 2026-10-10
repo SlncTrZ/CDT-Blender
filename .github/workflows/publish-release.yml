@@ -1,8 +1,8 @@
-name: Publish source release
+name: Publish versioned source and wheel release
 
 on:
   push:
-    tags: ["audit-*"]
+    tags: ["v*"]
 
 permissions:
   contents: write
@@ -22,9 +22,12 @@ jobs:
       REQUIRED_BRANCH: "main"
       REQUIRED_WORKFLOW: "CI"
       RELEASE_SCOPE: >-
-        Runs the complete offline suite in CI; repairs timeout uncertainty fencing and the addon dispatch contract checker. Full offline suite: 2234 passed. Lint, format and generated-tool consistency passed; an undeclared real dispatch command remains rejected. Interactive Blender qualification remains tied to its original measured version/context.
+        Motion graphics L2 contract v10, 121 MCP tools (7 new), authenticated source bridge to Blender 4.5.3 Windows headless (7 L2 tools) and UI (3 L2 tools) acceptance. 2634 offline tests passed on both Linux and Windows in native release qualification; production addon rollout and credential-preservation checks remain separate deploy gates.
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
       - name: Verify exact-source CI and prepare release notes
         shell: bash
         run: |
@@ -53,22 +56,37 @@ jobs:
               version = json.loads(Path("package.json").read_text())["version"]
           else:
               version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          tag = os.environ["GITHUB_REF_NAME"]
+          if tag != f"v{version}":
+              raise SystemExit(f"Release tag {tag} != package v{version}")
           notes = (
-              f"Source snapshot of package version **{version}**.\n\n"
+              f"Versioned source and wheel release **{version}**.\n\n"
               f"- Source commit: \x60{sha}\x60\n"
               f"- Exact-source CI: {latest['html_url']}\n"
-              f"- Distribution: GitHub source archives; no binary/package-registry publication.\n\n"
+              f"- Distribution: GitHub source archives, reproducible wheel, additive Blender addon archive and SHA-256 hashes.\n\n"
               f"{os.environ['RELEASE_SCOPE']}\n"
           )
           (Path(os.environ["RUNNER_TEMP"]) / "release-notes.md").write_text(notes, encoding="utf-8")
           print(f"Exact-source CI verified: {sha}")
           PY
-      - name: Publish immutable source prerelease
+      - name: Build versioned wheel and Blender addon archive
         shell: bash
         run: |
+          uv build --wheel --out-dir dist
+          git archive --format=zip \
+            --output="dist/blender_mcp_addon-$GITHUB_REF_NAME.zip" \
+            "$GITHUB_SHA" blender_mcp_addon
+          (cd dist && sha256sum *.whl *.zip > SHA256SUMS)
+      - name: Publish immutable versioned release
+        shell: bash
+        run: |
+          flags=()
+          if [[ "$GITHUB_REF_NAME" == *rc* || "$GITHUB_REF_NAME" == *a[0-9]* || "$GITHUB_REF_NAME" == *b[0-9]* ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
           gh release create "$GITHUB_REF_NAME" \
+            dist/*.whl dist/*.zip dist/SHA256SUMS \
             --verify-tag \
             --title "$GH_REPO — $GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md" \
-            --prerelease \
-            --latest=false
+            "${flags[@]}"

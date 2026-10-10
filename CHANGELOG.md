@@ -4,7 +4,22 @@ Upstream history lives in the upstream repository (seehiong/blender-mcp-bridge).
 CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 `b8113ae`, v0.1.3).
 
-## [Unreleased — CDT-Blender 0.1.3+cdt.1]
+## [0.2.0rc1] — CDT-Blender motion graphics L2 v10 — 2026-10-10
+
+- Source-verified 121-tool bridge, including seven bounded L2 SVG, GPv3,
+  Geometry Nodes and Unicode/externally-shaped raster typography tools.
+- Live remote authenticated Gateway→Windows agent→addon tests passed all
+  seven L2 commands headless plus three commands in real Blender UI.
+- Local Windows Blender 4.5.3 LTS .blend reopen, packed Arabic image,
+  animation frame readback and op_id/allow-root refusal tested.
+- Isolated cross-platform offline suite 2634 PASS on Windows and Linux.
+- L2 invalid-argument errors return typed nonretryable validation_error.
+- Release channel: **RC/canary**; production deployment requires a separately
+  pinned source wheel, addon/runtime version match, credential-preserving
+  migration and post-install authentication readback. Does not imply
+  Blender 5.x verification or finished marketing footage.
+
+## [0.1.3+cdt.1 — historical unreleased fork]
 
 ### [CDT] SlncTrZ provider-shell fork
 
