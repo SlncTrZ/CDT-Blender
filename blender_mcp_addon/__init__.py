@@ -1,3 +1,4 @@
+# type: ignore
 # blender_mcp_addon/__init__.py
 
 import bpy  # type: ignore

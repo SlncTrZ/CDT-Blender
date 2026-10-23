@@ -19,6 +19,7 @@ tool-specific; context acceptance is not complete modeling/sculpt certification.
 ## Quickstart / MCP Client Configuration
 
 ### Claude Desktop (`claude_desktop_config.json`)
+
 ```json
 {
   "mcpServers": {
@@ -31,6 +32,7 @@ tool-specific; context acceptance is not complete modeling/sculpt certification.
 ```
 
 ### Cursor (`~/.cursor/mcp.json`)
+
 ```json
 {
   "mcpServers": {
