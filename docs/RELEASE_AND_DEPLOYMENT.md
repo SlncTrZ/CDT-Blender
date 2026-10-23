@@ -1,6 +1,6 @@
 # CDT-Blender — Release and deployment
 
-**Release:** `0.2.1` · tag `v.0.2.1` · MCP contract `cdt-blender-contract-v10` · 121 tools.
+**Release:** `0.2.2` · tag `v.0.2.2` · MCP contract `cdt-blender-contract-v10` · 121 tools.
 
 The [release page](https://github.com/SlncTrZ/CDT-Blender/releases) is the source of versioned artifacts. The release workflow produces a bridge wheel, Blender addon ZIP and `SHA256SUMS`. Verify both artifact hashes before installation; source and runtime versions are distinct.
 

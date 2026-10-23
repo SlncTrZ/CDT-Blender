@@ -4,6 +4,11 @@ Upstream history lives in the upstream repository (seehiong/blender-mcp-bridge).
 CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 `b8113ae`, v0.1.3).
 
+## [0.2.2] — 2026-10-23
+
+- Add badges and ready-to-install MCP client quickstart configurations (Claude Desktop & Cursor) in README for Glama Grade A.
+- Fix AST key attribute access and mypy list type annotations in tools doc generator.
+
 ## [0.2.1] — Documentation and release maintenance — 2026-10-10
 
 - Clarified v10/121-tools source contract versus actively installed Gateway and addon versions; added auth-safe release/deployment guide, links and docs validation.

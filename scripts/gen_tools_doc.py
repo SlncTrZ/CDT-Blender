@@ -42,10 +42,10 @@ def params_str(t):
     return ", ".join(parts) if parts else "—"
 
 
-lines = []
+lines: list[str] = []
 total = 0
-toc = []
-body = []
+toc: list[str] = []
+body: list[str] = []
 for cat, mod, fn in CATS:
     tools = getattr(importlib.import_module(mod), fn)()
     total += len(tools)
@@ -107,7 +107,11 @@ if any(
     for key in dispatch_tables[0].keys
 ):
     raise RuntimeError("Expected literal command names in addon dispatch table")
-addon = {key.value for key in dispatch_tables[0].keys}
+addon = {
+    key.value
+    for key in dispatch_tables[0].keys
+    if isinstance(key, ast.Constant) and isinstance(key.value, str)
+}
 bridge = {t.name for cat, mod, fn in CATS for t in getattr(importlib.import_module(mod), fn)()}
 from blender_mcp_bridge.tools.design_rules import DESIGN_RULE_HANDLERS  # noqa: E402
 from blender_mcp_bridge.tools.provider import PROVIDER_HANDLERS  # noqa: E402

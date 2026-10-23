@@ -15,7 +15,7 @@ import os
 PROVIDER_ID = "blender"
 
 # Must track pyproject.toml.
-PROVIDER_VERSION = "0.2.1"
+PROVIDER_VERSION = "0.2.2"
 
 # Bump on any tool/capability change.
 CONTRACT_VERSION = "cdt-blender-contract-v10"
