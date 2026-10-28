@@ -60,6 +60,31 @@ server. Keep the addon socket local to the workstation.
 The bridge exposes authenticated Streamable HTTP and unauthenticated health
 liveness. A healthy bridge does not prove the addon or required UI mode is ready.
 
+## On-Demand Workstation Execution (PC 171)
+
+Theo quy định bắt buộc, máy trạm PC 171 **không tự ý khởi động dịch vụ chạy ngầm**. Khi AI Agent cần thao tác với Blender, Agent sẽ tự khởi động dịch vụ bằng script được cung cấp sẵn:
+
+- **Windows Batch Script (CMD / PowerShell):**
+  ```cmd
+  scripts\start_service.bat [PORT] [TRANSPORT]
+  :: Mặc định: PORT=8812, TRANSPORT=http
+  scripts\start_service.bat 8812 http
+  ```
+
+- **Bash Shell Script (Git Bash / WSL / Remote SSH):**
+  ```bash
+  ./scripts/start_service.sh [PORT] [TRANSPORT]
+  # Ví dụ chạy HTTP trên cổng 8812:
+  ./scripts/start_service.sh 8812 http
+  ```
+
+Kích hoạt từ xa qua SSH từ AI Agent:
+```bash
+ssh truon@192.168.1.171 "bash /mnt/pc-dev/CDT/CDT-Blender/scripts/start_service.sh 8812 http"
+```
+
+*Lưu ý:* Cần đảm bảo phần mềm Blender 4.x đang mở trên máy tính với addon `blender_mcp_addon` đang lắng nghe trên cổng nội bộ `8888`.
+
 ## Use
 
 Call `help`, `system_status` and `system_capabilities` first. Verify the current
