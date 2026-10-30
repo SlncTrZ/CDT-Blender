@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from .config import Config, settings
 from .local_runtime import LocalBlenderRuntimeAdapter
@@ -14,7 +15,32 @@ from .runtime_transport import (
     BlenderRuntimeTransport,
     LocalBlenderRuntimeTransport,
     RemoteBlenderRuntimeTransport,
+    RuntimeUnavailableError,
 )
+
+
+class UnattachedBlenderRuntimeTransport(BlenderRuntimeTransport):
+    """Fail-closed stand-by transport; no native dispatch or implicit rebind."""
+
+    def call(
+        self,
+        op: str,
+        params: dict[str, Any] | None = None,
+        *,
+        rid: str = "unknown",
+        timeout_seconds: float | None = None,
+        op_id: str | None = None,
+        expected_generation: str | None = None,
+    ) -> dict[str, Any]:
+        raise RuntimeUnavailableError(
+            "Blender runtime detached; start and explicitly bind a generation"
+        )
+
+    def health(self) -> dict[str, Any]:
+        raise RuntimeUnavailableError("Blender runtime is detached")
+
+    def close(self) -> None:
+        pass
 
 
 @dataclass
@@ -45,9 +71,18 @@ def create_runtime(config: Config) -> RuntimeBundle:
         return RuntimeBundle(port, LocalBlenderRuntimeTransport(port))
     if config.runtime_mode != "remote":
         raise ValueError("BLENDER_RUNTIME_MODE must be local or remote")
-    if not config.runtime_generation:
+    # Standby must be deliberately selected with *both* execution credentials
+    # absent. A partially configured session still fails closed at startup.
+    standby = (
+        config.runtime_on_demand and not config.runtime_generation and not config.runtime_token_fd
+    )
+    if not standby and not config.runtime_generation:
         raise ValueError("remote runtime requires an explicitly pinned generation")
     paths = RuntimePathPolicy(config.runtime_platform, config.assets_dir or "", config.allow_roots)
+    if standby:
+        standby_transport = UnattachedBlenderRuntimeTransport()
+        remote = RemoteBlenderRuntimeAdapter(standby_transport)
+        return RuntimeBundle(remote, standby_transport, paths)
     transport = RemoteBlenderRuntimeTransport(
         config.runtime_url, _read_token(config), expected_generation=config.runtime_generation
     )

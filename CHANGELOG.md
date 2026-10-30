@@ -4,6 +4,15 @@ Upstream history lives in the upstream repository (seehiong/blender-mcp-bridge).
 CDT fork entries are marked `[CDT]`. See `ATTRIBUTION.md` (upstream pin
 `b8113ae`, v0.1.3).
 
+## [0.2.3] — Unreleased source candidate — 2026-10-30
+
+- Implement opt-in Hybrid On-Demand bridge mode: authenticated MCP discovery and control-plane status remain available while the Windows Blender runtime is detached; native operations fail closed.
+- Require independent Gateway/Bridge credential and explicit, authenticated runtime-generation binding; refuse cross-release binding targets and partially attached states.
+- Handle offline/SSH timeout as Standby rather than crashing the bridge; add HTTP and launcher regression tests.
+- Bundle the operator-only `cdt-blender-profile` CLI in the release wheel so the production launcher does not require an untracked source checkout.
+- Keep contract v10/121 tools unchanged; no automatic Windows application start, unattended document modification, or native runtime hot-attach in this release.
+- Production deployment, new immutable artifacts, exact-source CI and Windows Blender 4.5.3 native requalification remain separate gates.
+
 ## [0.2.2] — 2026-10-23
 
 - Add badges and ready-to-install MCP client quickstart configurations (Claude Desktop & Cursor) in README for Glama Grade A.

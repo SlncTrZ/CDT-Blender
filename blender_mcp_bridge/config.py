@@ -40,6 +40,10 @@ class Config:
                 raise ValueError("BLENDER_ALLOW_ROOTS_JSON must be an array of strings")
             self.allow_roots = roots
         self.runtime_mode = os.getenv("BLENDER_RUNTIME_MODE", "local")
+        # Explicit opt-in: allow the MCP control plane to remain discoverable
+        # when the workstation runtime is not attached. Never authorize native
+        # dispatch without an independently verified generation and token.
+        self.runtime_on_demand = os.getenv("BLENDER_RUNTIME_ON_DEMAND") == "1"
         self.runtime_url = os.getenv("BLENDER_RUNTIME_URL", "")
         self.runtime_generation = os.getenv("BLENDER_RUNTIME_GENERATION", "").strip()
         self.runtime_platform = os.getenv("BLENDER_RUNTIME_PLATFORM", "")

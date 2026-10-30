@@ -125,6 +125,54 @@ def test_runtime_factory_remote_requires_binding_and_shared_transport(monkeypatc
         os.fstat(fd)
 
 
+def test_on_demand_remote_standby_keeps_contract_but_blocks_native(monkeypatch):
+    from blender_mcp_bridge.config import Config
+    from blender_mcp_bridge.runtime_factory import create_runtime
+    from blender_mcp_bridge.runtime_transport import RuntimeUnavailableError
+
+    monkeypatch.setenv("BLENDER_RUNTIME_MODE", "remote")
+    monkeypatch.setenv("BLENDER_RUNTIME_ON_DEMAND", "1")
+    monkeypatch.setenv("BLENDER_RUNTIME_URL", "http://127.0.0.1:19868")
+    monkeypatch.setenv("BLENDER_RUNTIME_PLATFORM", "Windows")
+    monkeypatch.setenv("BLENDER_ASSETS_DIR", r"C:\CDT\assets")
+    monkeypatch.setenv("BLENDER_ALLOW_ROOTS_JSON", json.dumps([r"C:\CDT\assets"]))
+    monkeypatch.delenv("BLENDER_RUNTIME_GENERATION", raising=False)
+    monkeypatch.delenv("BLENDER_RUNTIME_TOKEN_FD", raising=False)
+
+    bundle = create_runtime(Config())
+    assert bundle.port.capabilities()["provider_name"] == "blender"
+    assert bundle.port.status()["agent_reachable"] is False
+    assert bundle.port.status()["addon"]["connected"] is False
+    assert bundle.port.runtime_status()["backend_available"] is False
+    assert bundle.paths.resolve("model.blend") == r"C:\CDT\assets\model.blend"
+    with pytest.raises(RuntimeUnavailableError, match="detached"):
+        bundle.port.execute("create_cube", {})
+    with pytest.raises(RuntimeUnavailableError, match="detached"):
+        bundle.transport.call("document_info", {})
+    bundle.transport.close()
+
+
+def test_on_demand_partial_runtime_binding_is_not_accepted(monkeypatch):
+    from blender_mcp_bridge.config import Config
+    from blender_mcp_bridge.runtime_factory import create_runtime
+
+    monkeypatch.setenv("BLENDER_RUNTIME_MODE", "remote")
+    monkeypatch.setenv("BLENDER_RUNTIME_ON_DEMAND", "1")
+    monkeypatch.setenv("BLENDER_RUNTIME_URL", "http://127.0.0.1:19868")
+    monkeypatch.setenv("BLENDER_RUNTIME_PLATFORM", "Windows")
+    monkeypatch.setenv("BLENDER_ASSETS_DIR", r"C:\CDT\assets")
+    monkeypatch.setenv("BLENDER_ALLOW_ROOTS_JSON", json.dumps([r"C:\CDT\assets"]))
+    monkeypatch.setenv("BLENDER_RUNTIME_GENERATION", "gen-fixture")
+    monkeypatch.delenv("BLENDER_RUNTIME_TOKEN_FD", raising=False)
+    with pytest.raises(ValueError, match="credential descriptor"):
+        create_runtime(Config())
+
+    monkeypatch.delenv("BLENDER_RUNTIME_GENERATION", raising=False)
+    monkeypatch.setenv("BLENDER_RUNTIME_TOKEN_FD", "999999")
+    with pytest.raises(ValueError, match="generation"):
+        create_runtime(Config())
+
+
 def test_stdio_initialize_has_no_banner_and_needs_no_http_token(tmp_path):
     message = {
         "jsonrpc": "2.0",

@@ -6,7 +6,7 @@
 
 [project]
 name = "cdt-blender"
-version = "0.2.2"
+version = "0.2.3"
 description = "CDT-Blender generic 3D execution engine for SlncTrZ (provider: blender)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,6 +42,7 @@ Issues = "https://github.com/SlncTrZ/CDT-Blender/issues"
 [project.scripts]
 cdt-blender = "blender_mcp_bridge.main:cli"
 blender-mcp-bridge = "blender_mcp_bridge.main:cli"
+cdt-blender-profile = "blender_mcp_bridge.profile_launcher:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -54,6 +55,9 @@ packages = ["blender_mcp_bridge"]
 # full guide for pip-installed deployments (snapshot taken at build time).
 [tool.hatch.build.targets.wheel.force-include]
 "docs/TOOL_GUIDE.md" = "blender_mcp_bridge/data/TOOL_GUIDE.md"
+# One operator entry point, distributed with the wheel instead of relying on
+# a checked-out source tree on the production Gateway.
+"scripts/launch_runtime_profile.py" = "blender_mcp_bridge/profile_launcher.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
